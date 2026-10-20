@@ -15,7 +15,7 @@
   #hud b { font-variant-numeric:tabular-nums; }
   #hud .row { display:flex; gap:14px; flex-wrap:wrap; }
   #viol.bad { color:var(--bad); } #viol.ok { color:var(--ok); }
-  #controls { position:fixed; bottom:calc(env(safe-area-inset-bottom) + 10px); left:8px; right:8px; background:var(--panel); border-radius:14px; padding:10px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; backdrop-filter:blur(6px); }
+  #controls { position:fixed; bottom:calc(env(safe-area-inset-bottom) + 10px); left:50%; transform:translateX(-50%); background:var(--panel); border-radius:14px; padding:10px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; backdrop-filter:blur(6px); }
   button, label.btn { appearance:none; border:0; border-radius:10px; padding:10px 14px; background:#2a313c; color:var(--text); font:600 14px system-ui; }
   button.primary { background:var(--accent); color:#111; }
   input[type=range] { flex:1; min-width:110px; accent-color:var(--accent); }
@@ -38,7 +38,7 @@
 </div>
 
 <div id="hud" class="hidden">
-  <div class="row"><span><b id="fps">0</b> FPS</span><span><b id="ms">0</b> ms</span><span id="backend"></span><span id="msize"></span></div>
+  <div class="row"><span><b id="fps">0</b> FPS video</span><span><b id="dps">0</b> det/s</span><span><b id="ms">0</b> ms</span><span id="backend"></span><span id="msize"></span></div>
   <div class="row"><span>bikes <b id="nb">0</b></span><span>persons <b id="np">0</b></span><span>helmets <b id="nh">0</b></span></div>
   <div class="row"><span id="viol" class="ok">no violation</span><span>unique violators <b id="uv">0</b></span></div>
   <div class="row" id="err" style="color:#ff6b6b"></div>
@@ -47,9 +47,6 @@
 
 <div id="controls" class="hidden">
   <button id="flipBtn">Switch camera</button>
-  <button id="sizeBtn">640 px</button>
-  <span>conf <b id="confv">0.30</b></span>
-  <input id="conf" type="range" min="0.05" max="0.9" step="0.05" value="0.30">
   <button id="stopBtn">Stop</button>
 </div>
 

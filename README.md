@@ -6,8 +6,8 @@ Open the page on a phone, press **Start camera** and point it at the street. The
 and **helmets** and marks every motorbike as **HELMET OK** (green), **NO HELMET** (red) or **?** (rider too small / unclear).
 
 * Model: YOLO11n fine-tuned from COCO weights on our 383-image Vietnamese traffic dataset, exported to ONNX
-  (`model_640.onnx` = fast mode, `model_960.onnx` = accurate mode for small, distant helmets).
+  (one dynamic-size model, split into `model_part1.bin` + `model_part2.bin`).
 * Runs **entirely on the device** with ONNX Runtime Web (WebGPU, or WebAssembly as a fallback). No image leaves the phone.
 * Helmet status: a person overlapping a motorbike is a rider; a helmet box in the rider's head region means *helmet*;
   a rider at least 80 px tall without one means *no helmet*. Motorbikes are tracked between frames to count unique violators.
-* Controls: switch front/back camera, fast/accurate mode, confidence threshold, or test with a photo/video file.
+* Fully automatic: multi-scale inference (960 px for small, distant objects + 320 px for large, close objects), per-class thresholds chosen on the validation set, speed adaptation to the phone, and per-motorbike tracking that smooths the helmet status over several frames.
