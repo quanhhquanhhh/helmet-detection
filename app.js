@@ -1,8 +1,8 @@
 const CLASSES = ["motorbike", "person", "helmet"];
 const COLORS = ["#ff8c00", "#00aaff", "#00c800"];
 const STATUS_COLORS = { violation: "#e62828", ok: "#3cc864", unknown: "#aaaaaa" };
-const CONF = [0.35, 0.35, 0.25];
-const CAND_CONF = 0.2;
+const CONF = [0.45, 0.55, 0.4];
+const CAND_CONF = 0.3;
 const IOU_NMS = 0.6;
 const RIDER_MIN_PX = 80;
 const BIG_FRAC = 0.08;
