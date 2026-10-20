@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Helmet Detection</title>
+<style>
+  :root { --bg:#0e1116; --panel:rgba(14,17,22,.78); --text:#f2f4f7; --muted:#9aa4b2; --ok:#3cc864; --bad:#e62828; --accent:#ffb020; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:15px/1.4 -apple-system, system-ui, Segoe UI, Roboto, sans-serif; overflow:hidden; }
+  #stage { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#000; }
+  #view { max-width:100%; max-height:100%; }
+  #hud { position:fixed; top:calc(env(safe-area-inset-top) + 8px); left:8px; right:8px; background:var(--panel); border-radius:12px; padding:8px 12px; font-size:13px; backdrop-filter:blur(6px); }
+  #hud b { font-variant-numeric:tabular-nums; }
+  #hud .row { display:flex; gap:14px; flex-wrap:wrap; }
+  #viol.bad { color:var(--bad); } #viol.ok { color:var(--ok); }
+  #controls { position:fixed; bottom:calc(env(safe-area-inset-bottom) + 10px); left:8px; right:8px; background:var(--panel); border-radius:14px; padding:10px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; backdrop-filter:blur(6px); }
+  button, label.btn { appearance:none; border:0; border-radius:10px; padding:10px 14px; background:#2a313c; color:var(--text); font:600 14px system-ui; }
+  button.primary { background:var(--accent); color:#111; }
+  input[type=range] { flex:1; min-width:110px; accent-color:var(--accent); }
+  #status { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center; padding:24px; }
+  #status h1 { font-size:22px; margin:0; } #status p { color:var(--muted); margin:0; max-width:420px; }
+  .hidden { display:none !important; }
+  .legend span { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:-1px; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="view"></canvas></div>
+<video id="video" playsinline muted autoplay class="hidden"></video>
+
+<div id="status">
+  <h1>Motorbike Helmet Detection</h1>
+  <p>Real-time detection of motorbikes, riders and helmets, running entirely on this device.</p>
+  <p id="loadmsg">Loading model…</p>
+  <button id="startBtn" class="primary hidden">Start camera</button>
+  <label class="btn hidden" id="fileLbl">Test with a photo / video<input id="file" type="file" accept="image/*,video/*" hidden></label>
+</div>
+
+<div id="hud" class="hidden">
+  <div class="row"><span><b id="fps">0</b> FPS</span><span><b id="ms">0</b> ms</span><span id="backend"></span><span id="msize"></span></div>
+  <div class="row"><span>bikes <b id="nb">0</b></span><span>persons <b id="np">0</b></span><span>helmets <b id="nh">0</b></span></div>
+  <div class="row"><span id="viol" class="ok">no violation</span><span>unique violators <b id="uv">0</b></span></div>
+  <div class="row" id="err" style="color:#ff6b6b"></div>
+  <div class="row legend"><span style="background:#ff8c00"></span>motorbike <span style="background:#00aaff"></span>person <span style="background:#00c800"></span>helmet</div>
+</div>
+
+<div id="controls" class="hidden">
+  <button id="flipBtn">Switch camera</button>
+  <button id="sizeBtn">640 px</button>
+  <span>conf <b id="confv">0.30</b></span>
+  <input id="conf" type="range" min="0.05" max="0.9" step="0.05" value="0.30">
+  <button id="stopBtn">Stop</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.webgpu.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
