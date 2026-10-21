@@ -1,7 +1,7 @@
 const CLASSES = ["motorbike", "person", "helmet"];
 const COLORS = ["#ff8c00", "#00aaff", "#00c800"];
 const STATUS_COLORS = { violation: "#e62828", ok: "#3cc864", unknown: "#aaaaaa" };
-const CONF = [0.5, 0.45, 0.35];
+const CONF = [0.5, 0.45, 0.4];
 const CAND_CONF = 0.3;
 const HELMET_ON_HEAD = 0.3;
 const TARGET_MS = 62;
