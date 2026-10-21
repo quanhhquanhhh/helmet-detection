@@ -1,7 +1,7 @@
 const CLASSES = ["motorbike", "person", "helmet"];
 const COLORS = ["#ff8c00", "#00aaff", "#00c800"];
 const STATUS_COLORS = { violation: "#e62828", ok: "#3cc864", unknown: "#aaaaaa" };
-const CONF = [0.45, 0.55, 0.4];
+const CONF = [0.5, 0.45, 0.35];
 const CAND_CONF = 0.3;
 const HELMET_ON_HEAD = 0.3;
 const TARGET_MS = 62;
@@ -43,7 +43,7 @@ async function loadModel() {
   ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 2) : 1;
   const parts = [];
   for (let i = 1; i <= 9; i++) {
-    const r = await fetch(`model_part${i}.bin`);
+    const r = await fetch(`model_part${i}.bin?v=v3c`);
     if (!r.ok) break;
     parts.push(new Uint8Array(await r.arrayBuffer()));
   }
