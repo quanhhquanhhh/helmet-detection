@@ -1,6 +1,7 @@
 const CLASSES = ["motorbike", "person", "helmet"];
-const COLORS = ["#ff8c00", "#00aaff", "#00c800"];
-const STATUS_COLORS = { violation: "#e62828", ok: "#3cc864", unknown: "#aaaaaa" };
+const COLORS = ["#f2f2ee", "#3d9bff", "#22c55e"];
+const STATUS_COLORS = { violation: "#d62a2f", ok: "#2fbf5b", unknown: "#9aa0a8" };
+const FONT = "Overpass, -apple-system, system-ui, sans-serif";
 const CONF = [0.6, 0.5, 0.4];
 const CAND_CONF = 0.3;
 const HELMET_ON_HEAD = 0.3;
@@ -37,8 +38,10 @@ const stage = { prep: 0, run: 0 }, shown = { prep: 0, run: 0 }, runCost = {};
 const tracker = { tracks: [], nextId: 1, violators: new Set() };
 const tileCache = { next: 0, dets: [], ts: [], key: "" };
 
+function setProgress(p) { $("bar").style.width = `${Math.round(100 * p)}%`; }
+
 async function loadModel() {
-  $("loadmsg").textContent = "Loading model…";
+  $("loadmsg").textContent = "Loading the model…"; setProgress(0.05);
   ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/";
   ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 2) : 1;
   const parts = [];
@@ -46,6 +49,7 @@ async function loadModel() {
     const r = await fetch(`model_part${i}.bin?v=v4b`);
     if (!r.ok) break;
     parts.push(new Uint8Array(await r.arrayBuffer()));
+    setProgress(Math.min(0.7, 0.05 + 0.33 * parts.length));
   }
   if (!parts.length) throw new Error("model files not found");
   const bytes = new Uint8Array(parts.reduce((n, x) => n + x.length, 0));
@@ -58,9 +62,10 @@ async function loadModel() {
     } catch (e) { console.warn(ep, "failed:", e); }
   }
   if (!session) throw new Error("could not load the model");
-  $("backend").textContent = backend.toUpperCase();
-  $("loadmsg").textContent = "Preparing the GPU…";
-  for (const S of [1280, 960, 640, 480, 320]) {
+  $("backend").textContent = backend === "webgpu" ? "WebGPU (graphics chip)" : "WebAssembly (processor)";
+  $("loadmsg").textContent = "Warming up the graphics chip…";
+  for (const [k, S] of [1280, 960, 640, 480, 320].entries()) {
+    setProgress(0.72 + 0.056 * k);
     const x = new ort.Tensor("float32", new Float32Array(3 * S * S), [1, 3, S, S]);
     await session.run({ [session.inputNames[0]]: x });
     const t = [];
@@ -266,44 +271,59 @@ function track(bikes, isVideo) {
   tracker.tracks = tracker.tracks.filter((t) => t.missed < 10);
 }
 
-function label(text, x, y, color, s) {
-  ctx.font = `600 ${Math.round(13 * s)}px system-ui`;
-  const w = ctx.measureText(text).width + 8 * s, h = 18 * s; y = Math.max(h, y);
-  ctx.fillStyle = color; ctx.fillRect(x, y - h, w, h);
-  ctx.fillStyle = "#fff"; ctx.fillText(text, x + 4 * s, y - 5 * s);
+function label(text, x, y, color, s, ink = "#fff") {
+  ctx.font = `800 ${Math.round(14 * s)}px ${FONT}`;
+  const w = ctx.measureText(text).width + 12 * s, h = 21 * s; y = Math.max(h, y);
+  x = Math.max(0, Math.min(x, view.width - w));
+  ctx.fillStyle = color; ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y - h, w, h, 6 * s); else ctx.rect(x, y - h, w, h);
+  ctx.fill();
+  ctx.fillStyle = ink; ctx.fillText(text, x + 6 * s, y - 6 * s);
+}
+
+function box(b, color, width, r) {
+  ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(b[0], b[1], b[2] - b[0], b[3] - b[1], r); else ctx.rect(b[0], b[1], b[2] - b[0], b[3] - b[1]);
+  ctx.stroke();
 }
 
 function drawResults({ dets, bikes }) {
-  const s = Math.max(1, Math.max(view.width, view.height) / 900);
-  ctx.lineWidth = 2 * s;
+  const s = Math.max(1, view.width / Math.max(1, view.getBoundingClientRect().width));
   for (const d of dets) {
     if (d[5] === 0) continue;
-    ctx.strokeStyle = COLORS[d[5]]; ctx.strokeRect(d[0], d[1], d[2] - d[0], d[3] - d[1]);
-    if (d[5] === 2) label(`helmet ${d[4].toFixed(2)}`, d[0], d[1] - 2, COLORS[2], s * 0.85);
+    box(d, COLORS[d[5]], (d[5] === 2 ? 2.5 : 2) * s, 4 * s);
+    if (d[5] === 2) label(`${Math.round(100 * d[4])}%`, d[0], d[1] - 3 * s, COLORS[2], s * 0.8, "#0d2a16");
   }
-  ctx.lineWidth = 3 * s;
   for (const b of bikes) {
-    const [x1, y1, x2, y2] = b.drawBox || b.box, st = b.shown || b.status, col = STATUS_COLORS[st];
-    ctx.strokeStyle = col; ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-    const tag = { violation: "NO HELMET", ok: "HELMET OK", unknown: "?" }[st];
-    label(`#${b.id} ${tag}`, x1, y2 + 20 * s, col, s);
-    if (st === "violation") for (const r of b.riders) if (r.person && r.status === "no_helmet") {
-      ctx.strokeStyle = STATUS_COLORS.violation; ctx.strokeRect(r.person[0], r.person[1], r.person[2] - r.person[0], r.person[3] - r.person[1]);
-    }
+    const bb = b.drawBox || b.box, st = b.shown || b.status, col = STATUS_COLORS[st];
+    box(bb, col, 3.5 * s, 8 * s);
+    const tag = { violation: "No helmet", ok: "Helmet", unknown: "Checking" }[st];
+    label(`${tag}  #${b.id}`, bb[0], bb[3] + 23 * s, col, s, st === "unknown" ? "#1d1f22" : "#fff");
+    if (st === "violation") for (const r of b.riders) if (r.person && r.status === "no_helmet") box(r.person, STATUS_COLORS.violation, 3 * s, 6 * s);
   }
 }
 
 function rate(ts) { return ts.length > 1 ? 1000 * (ts.length - 1) / (ts[ts.length - 1] - ts[0]) : 0; }
 
+let flagged = 0;
+
 function updateHud() {
-  $("fps").textContent = rate(renderTimes).toFixed(0); $("dps").textContent = rate(inferTimes).toFixed(1); $("ms").textContent = emaMs.toFixed(0);
-  $("msize").textContent = `auto ${LEVELS[level].name} · prep ${shown.prep.toFixed(0)} · gpu ${shown.run.toFixed(0)} ms`;
+  $("fps").textContent = rate(renderTimes).toFixed(0); $("ms").textContent = emaMs.toFixed(0);
+  $("dps").textContent = still ? "1" : rate(inferTimes).toFixed(0);
+  $("msize").textContent = `${LEVELS[level].name} px (prep ${shown.prep.toFixed(0)} ms, GPU ${shown.run.toFixed(0)} ms)`;
   const { dets, bikes } = latest;
   $("nb").textContent = dets.filter((d) => d[5] === 0).length; $("np").textContent = dets.filter((d) => d[5] === 1).length;
-  $("nh").textContent = dets.filter((d) => d[5] === 2).length; $("uv").textContent = tracker.violators.size;
-  const nv = bikes.filter((b) => (b.shown || b.status) === "violation").length;
-  $("viol").textContent = nv ? `${nv} violation${nv > 1 ? "s" : ""} now` : "no violation";
-  $("viol").className = nv ? "bad" : "ok";
+  $("nh").textContent = dets.filter((d) => d[5] === 2).length;
+  const total = tracker.violators.size; $("uv").textContent = total;
+  const st = bikes.map((b) => b.shown || b.status), nv = st.filter((x) => x === "violation").length, nok = st.filter((x) => x === "ok").length;
+  $("nv").textContent = nv;
+  $("disc").className = "disc " + (nv ? "bad" : nok ? "ok" : "wait");
+  $("viol").textContent = nv ? `${nv} ${nv > 1 ? "riders" : "rider"} without a helmet` :
+    nok === st.length ? "Everyone in view wears a helmet" :
+    nok ? `${nok} with a helmet, ${st.length - nok} being checked` : bikes.length ? "Checking riders" : "Looking for motorbikes";
+  $("seen").textContent = total ? `${total} flagged since you started` : "No riders without a helmet so far";
+  if (total > flagged && !still) { const f = $("flash"); f.classList.remove("on"); void f.offsetWidth; f.classList.add("on"); }
+  flagged = total;
 }
 
 function renderLoop() {
@@ -355,7 +375,7 @@ async function processStill() {
 }
 
 function showUi() {
-  $("status").classList.add("hidden"); $("hud").classList.remove("hidden"); $("controls").classList.remove("hidden");
+  flagged = 0; $("status").classList.add("hidden"); $("hud").classList.remove("hidden"); $("controls").classList.remove("hidden");
 }
 
 function resetState() {
@@ -392,9 +412,13 @@ async function openUrl(url, isImage) {
   }
 }
 
-$("startBtn").onclick = () => startCamera().catch((e) => alert("Camera error: " + e.message +
-  "\nOpen this page over HTTPS (e.g. GitHub Pages) and allow camera access."));
+$("startBtn").onclick = () => startCamera().catch((e) => {
+  $("loadmsg").textContent = `The camera did not start (${e.message}). Allow camera access for this site in Settings, then try again.`;
+});
 $("flipBtn").onclick = () => { facing = facing === "environment" ? "user" : "environment"; startCamera().catch((e) => alert(e.message)); };
+$("speed").onclick = () => {
+  const open = $("details").classList.toggle("hidden") === false; $("speed").setAttribute("aria-expanded", open);
+};
 $("stopBtn").onclick = () => { stopSource(); $("status").classList.remove("hidden"); $("hud").classList.add("hidden"); $("controls").classList.add("hidden"); };
 $("file").onchange = (e) => {
   const f = e.target.files[0]; if (!f) return;
@@ -406,13 +430,15 @@ document.addEventListener("visibilitychange", async () => {
 
 (async () => {
   try {
-    await loadModel();
-    $("loadmsg").textContent = `Model ready (${backend.toUpperCase()}, start level ${LEVELS[level].name}; ` +
-      `GPU ms 1280/960/640: ${[1280, 960, 640].map((S) => runCost[S].toFixed(0)).join("/")}). Point the camera at the street.`;
+    await Promise.all([loadModel(), document.fonts ? document.fonts.load(`800 16px ${FONT}`).catch(() => {}) : null]);
+    setProgress(1); document.body.classList.remove("loading");
+    $("loadmsg").textContent = backend === "webgpu" ? "Ready. Running on the graphics chip." :
+      "Ready. This browser has no WebGPU, so it runs on the processor and checks fewer frames per second.";
     $("startBtn").classList.remove("hidden"); $("fileLbl").classList.remove("hidden");
     const src = new URLSearchParams(location.search).get("src");
     if (src) openUrl(src, /\.(jpe?g|png|webp)$/i.test(src));
   } catch (e) {
-    $("loadmsg").textContent = "Error: " + e.message;
+    document.body.classList.remove("loading");
+    $("loadmsg").textContent = `The model did not load (${e.message}). Check your connection and reload the page.`;
   }
 })();
