@@ -1,7 +1,7 @@
 const CLASSES = ["motorbike", "person", "helmet", "no_helmet"];
-const COLORS = ["#f2f2ee", "#3d9bff", "#22c55e", "#ff6a2b"];
-const STATUS_COLORS = { violation: "#d62a2f", ok: "#2fbf5b", unknown: "#9aa0a8" };
-const FONT = "Overpass, -apple-system, system-ui, sans-serif";
+const COLORS = ["#f2f4f6", "#4ea1ff", "#2fb36d", "#ff8a3d"];
+const STATUS_COLORS = { violation: "#e5383b", ok: "#2fb36d", unknown: "#c3cad2" };
+const FONT = "'Barlow Semi Condensed', Barlow, -apple-system, system-ui, sans-serif";
 const CONF = [0.55, 0.5, 0.25, 0.15];  // motorbike, person, helmet from val; no_helmet 0.15 (results/v7_eval.csv)
 const INFER_BARE = false;  // v8 marks bare heads itself; guessing from a missing head box lowered F1 on both test sets
 const CAND_CONF = 0.15;
@@ -36,8 +36,13 @@ let running = false, facing = "environment", stream = null, still = null, wakeLo
 let latest = { dets: [], bikes: [] };
 let renderTimes = [], inferTimes = [];
 const stage = { prep: 0, run: 0 }, shown = { prep: 0, run: 0 }, runCost = {};
-const tracker = { tracks: [], nextId: 1, violators: new Set() };
+const tracker = { tracks: [], nextId: 1, violators: new Set(), number: new Map(), recent: [], logged: 0 };
 const tileCache = { next: 0, dets: [], ts: [], key: "" };
+const LOG_MAX = 40;
+
+// one session.run at a time: a new source can start a loop while the old one is still waiting on the GPU
+let runQueue = Promise.resolve();
+function runOnce(feeds) { const p = runQueue.then(() => session.run(feeds)); runQueue = p.catch(() => {}); return p; }
 
 function setProgress(p) { $("bar").style.width = `${Math.round(100 * p)}%`; }
 
@@ -93,7 +98,7 @@ async function infer(src, w, h, S, sx = 0, sy = 0) {
   const t0 = performance.now();
   const m = preprocess(src, w, h, S, sx, sy);
   const t1 = performance.now();
-  const o = await session.run({ [session.inputNames[0]]: m.tensor });
+  const o = await runOnce({ [session.inputNames[0]]: m.tensor });
   const t2 = performance.now();
   stage.prep += t1 - t0; stage.run += t2 - t1;
   return { out: o[session.outputNames[0]], m };
@@ -250,11 +255,35 @@ function composeRiders(dets) {
   return out;
 }
 
+// fallback when boxes jump between frames: the closest recent track of a similar size
+function nearestTrack(bx, used) {
+  const cx = (bx[0] + bx[2]) / 2, cy = (bx[1] + bx[3]) / 2, sz = Math.max(bx[2] - bx[0], bx[3] - bx[1]);
+  let best = null, bestD = 0.6 * sz;
+  for (const t of tracker.tracks) {
+    if (used.has(t) || t.missed > 5) continue;
+    const r = t.raw, tz = Math.max(r[2] - r[0], r[3] - r[1]);
+    if (tz < 0.6 * sz || tz > 1.6 * sz) continue;
+    const d = Math.hypot((r[0] + r[2]) / 2 - cx, (r[1] + r[3]) / 2 - cy);
+    if (d < bestD) { best = t; bestD = d; }
+  }
+  return best;
+}
+
+// a track that lost its id and came back as a new one is still the same rider: do not log it twice
+function recentViolation(bx) {
+  const now = performance.now();
+  tracker.recent = tracker.recent.filter((r) => now - r.t < 3000);
+  const sz = Math.max(bx[2] - bx[0], bx[3] - bx[1]);
+  return tracker.recent.find((r) => r.track.missed > 0 && (iou(r.box, bx) > 0.2 ||
+    Math.hypot((r.box[0] + r.box[2] - bx[0] - bx[2]) / 2, (r.box[1] + r.box[3] - bx[1] - bx[3]) / 2) < 0.8 * sz));
+}
+
 function track(bikes, isVideo) {
   const used = new Set();
   for (const b of bikes) {
     let best = null, bestI = 0.25;
     for (const t of tracker.tracks) { const v = iou(t.raw, b.box); if (!used.has(t) && v > bestI) { best = t; bestI = v; } }
+    if (!best) best = nearestTrack(b.box, used);
     if (!best) { best = { id: tracker.nextId++, hist: [], missed: 0, smooth: b.box.slice(0, 4) }; tracker.tracks.push(best); }
     used.add(best); best.raw = b.box; best.missed = 0;
     best.smooth = best.smooth.map((v, k) => 0.5 * v + 0.5 * b.box[k]);
@@ -266,26 +295,56 @@ function track(bikes, isVideo) {
     else if (no >= 2 || (no >= 1 && nv === 0)) b.shown = "ok";
     else b.shown = "unknown";
     b.id = best.id; b.drawBox = isVideo ? best.smooth : b.box;
-    if (b.shown === "violation") tracker.violators.add(best.id);
+    if (b.shown === "violation" && !tracker.violators.has(best.id)) {
+      const same = recentViolation(b.box);
+      if (same) tracker.number.set(best.id, same.n);
+      else { tracker.logged++; tracker.number.set(best.id, tracker.logged); logViolation(b, tracker.logged); }
+      tracker.recent.push({ box: b.box.slice(0, 4), t: performance.now(), n: tracker.number.get(best.id), track: best });
+      tracker.violators.add(best.id);
+    }
   }
   for (const t of tracker.tracks) if (!used.has(t)) t.missed++;
   tracker.tracks = tracker.tracks.filter((t) => t.missed < 10);
 }
 
-function label(text, x, y, color, s, ink = "#fff") {
-  ctx.font = `800 ${Math.round(14 * s)}px ${FONT}`;
-  const w = ctx.measureText(text).width + 12 * s, h = 21 * s; y = Math.max(h, y);
+// tags drawn this frame, so later tags do not cover earlier ones
+let placed = [];
+
+function label(text, x, y, color, s, ink = "#fff", sub = "", optional = false) {
+  ctx.font = `700 ${Math.round(15 * s)}px ${FONT}`;
+  const tw = ctx.measureText(text).width;
+  ctx.font = `500 ${Math.round(13 * s)}px ${FONT}`;
+  const sw = sub ? ctx.measureText(sub).width + 6 * s : 0;
+  const w = tw + sw + 14 * s, h = 22 * s; y = Math.max(h, Math.min(y, view.height));
   x = Math.max(0, Math.min(x, view.width - w));
+  const hits = (yy) => placed.some((p) => x < p[2] && x + w > p[0] && yy - h < p[3] && yy > p[1]);
+  if (hits(y)) {
+    if (optional) return;
+    for (let k = 1; k < 4 && hits(y); k++) y += h + 2 * s;
+  }
+  placed.push([x, y - h, x + w, y]);
   ctx.fillStyle = color; ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(x, y - h, w, h, 6 * s); else ctx.rect(x, y - h, w, h);
+  if (ctx.roundRect) ctx.roundRect(x, y - h, w, h, 4 * s); else ctx.rect(x, y - h, w, h);
   ctx.fill();
-  ctx.fillStyle = ink; ctx.fillText(text, x + 6 * s, y - 6 * s);
+  ctx.fillStyle = ink; ctx.font = `700 ${Math.round(15 * s)}px ${FONT}`; ctx.fillText(text, x + 7 * s, y - 6 * s);
+  if (sub) { ctx.globalAlpha = 0.8; ctx.font = `500 ${Math.round(13 * s)}px ${FONT}`; ctx.fillText(sub, x + 7 * s + tw + 6 * s, y - 6.5 * s); ctx.globalAlpha = 1; }
 }
 
-function box(b, color, width, r) {
-  ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath();
+function box(b, color, width, r, alpha = 1) {
+  ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath();
   if (ctx.roundRect) ctx.roundRect(b[0], b[1], b[2] - b[0], b[3] - b[1], r); else ctx.rect(b[0], b[1], b[2] - b[0], b[3] - b[1]);
-  ctx.stroke();
+  ctx.stroke(); ctx.globalAlpha = 1;
+}
+
+// motorbike: corner brackets in its status colour over a faint outline
+function brackets(b, color, s) {
+  const w = b[2] - b[0], h = b[3] - b[1], k = Math.max(8 * s, 0.2 * Math.min(w, h));
+  box(b, color, 1.5 * s, 2 * s, 0.45);
+  ctx.strokeStyle = color; ctx.lineWidth = 4 * s; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.beginPath();
+  for (const [x, y, dx, dy] of [[b[0], b[1], 1, 1], [b[2], b[1], -1, 1], [b[0], b[3], 1, -1], [b[2], b[3], -1, -1]]) {
+    ctx.moveTo(x, y + dy * k); ctx.lineTo(x, y); ctx.lineTo(x + dx * k, y);
+  }
+  ctx.stroke(); ctx.lineCap = "butt";
 }
 
 // display only: one head box per head (helmet and no_helmet boxes often stack on the same head)
@@ -296,24 +355,55 @@ function shownDets(dets) {
 }
 
 function drawResults({ dets, bikes }) {
-  const s = Math.max(1, view.width / Math.max(1, view.getBoundingClientRect().width));
-  for (const d of shownDets(dets)) {
-    if (d[5] === 0) continue;
-    box(d, COLORS[d[5]], (d[5] >= 2 ? 2.5 : 2) * s, 4 * s);
-    if (d[5] >= 2) label(`${Math.round(100 * d[4])}%`, d[0], d[1] - 3 * s, COLORS[d[5]], s * 0.8, d[5] === 2 ? "#0d2a16" : "#2a0d05");
-  }
+  const cssW = Math.max(1, view.getBoundingClientRect().width);
+  const s = Math.max(1, view.width / cssW), t = s * Math.min(1, Math.max(0.7, cssW / 800));  // t: tag size, smaller on narrow screens
+  const shownList = shownDets(dets); placed = [];
+  for (const d of shownList) if (d[5] === 1) box(d, COLORS[1], 1.5 * s, 3 * s, 0.7);
   for (const b of bikes) {
-    const bb = b.drawBox || b.box, st = b.shown || b.status, col = STATUS_COLORS[st];
-    box(bb, col, 3.5 * s, 8 * s);
-    const tag = { violation: "No helmet", ok: "Helmet", unknown: "Checking" }[st];
-    label(`${tag}  #${b.id}`, bb[0], bb[3] + 23 * s, col, s, st === "unknown" ? "#1d1f22" : "#fff");
-    if (st === "violation") for (const r of b.riders) if (r.person && r.status === "no_helmet") box(r.person, STATUS_COLORS.violation, 3 * s, 6 * s);
+    const st = b.shown || b.status;
+    brackets(b.drawBox || b.box, STATUS_COLORS[st], s);
+    if (st === "violation") for (const r of b.riders) if (r.person && r.status === "no_helmet") box(r.person, STATUS_COLORS.violation, 2.5 * s, 3 * s);
+  }
+  // tags only where they help: every violation, and helmet-OK only on motorbikes big enough to have room
+  for (const b of bikes) {
+    const bb = b.drawBox || b.box, st = b.shown || b.status;
+    let top = bb[1];
+    for (const r of b.riders) for (const q of [r.person, r.head]) if (q) top = Math.min(top, q[1]);
+    if (st === "violation") label("No helmet", bb[0], top - 4 * t, STATUS_COLORS.violation, t, "#fff", `#${tracker.number.get(b.id) || ""}`);
+    else if (st === "ok" && bb[2] - bb[0] > 0.12 * view.width) label("Helmet", bb[0], top - 4 * t, STATUS_COLORS.ok, t * 0.85, "#fff", "", true);
+  }
+  for (const d of shownList) {
+    if (d[5] < 2) continue;
+    box(d, COLORS[d[5]], 2.5 * s, 3 * s);
+    if (d[5] === 3) label(`Bare ${Math.round(100 * d[4])}%`, d[0], d[1] - 3 * s, COLORS[3], t * 0.75, "#2a0d05", "", true);
   }
 }
 
+function clock(t) { const m = Math.floor(t / 60), x = Math.floor(t % 60); return `${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}`; }
+
+// snapshot of the motorbike and its riders from the frame the decision was made on
+function logViolation(b, id) {
+  const u = b.box.slice(0, 4);
+  for (const r of b.riders) if (r.person) { u[0] = Math.min(u[0], r.person[0]); u[1] = Math.min(u[1], r.person[1]); u[2] = Math.max(u[2], r.person[2]); u[3] = Math.max(u[3], r.person[3]); }
+  const side = Math.max(u[2] - u[0], u[3] - u[1]) * 1.15, cx = (u[0] + u[2]) / 2, cy = (u[1] + u[3]) / 2;
+  const c = document.createElement("canvas"); c.width = c.height = 192;
+  const g = c.getContext("2d"); g.fillStyle = "#222"; g.fillRect(0, 0, 192, 192);
+  g.drawImage(frameC, cx - side / 2, cy - side / 2, side, side, 0, 0, 192, 192);
+  const when = still ? "photo" : stream ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : clock(video.currentTime);
+  const n = b.riders.filter((r) => r.status === "no_helmet").length;
+  const li = document.createElement("li"); li.className = "card new";
+  li.innerHTML = `<img alt="Motorbike #${id}"><div><b>#${id}</b><span>${when}</span><em>${n > 1 ? n + " riders bare-headed" : "No helmet"}</em></div>`;
+  li.querySelector("img").src = c.toDataURL("image/jpeg", 0.85);
+  const list = $("logList"); list.prepend(li);
+  while (list.children.length > LOG_MAX) list.lastChild.remove();
+  $("logEmpty").classList.add("hidden"); $("logCount").textContent = tracker.logged;
+}
+
+function clearLog() { $("logList").replaceChildren(); $("logEmpty").classList.remove("hidden"); $("logCount").textContent = "0"; }
+
 function rate(ts) { return ts.length > 1 ? 1000 * (ts.length - 1) / (ts[ts.length - 1] - ts[0]) : 0; }
 
-let flagged = 0;
+let flagged = 0, lastFlash = 0;
 
 function updateHud() {
   $("fps").textContent = rate(renderTimes).toFixed(0); $("ms").textContent = emaMs.toFixed(0);
@@ -323,15 +413,17 @@ function updateHud() {
   $("nb").textContent = dets.filter((d) => d[5] === 0).length; $("np").textContent = dets.filter((d) => d[5] === 1).length;
   const heads = shownDets(dets);
   $("nh").textContent = heads.filter((d) => d[5] === 2).length; $("nn").textContent = heads.filter((d) => d[5] === 3).length;
-  const total = tracker.violators.size; $("uv").textContent = total;
+  const total = tracker.logged; $("uv").textContent = total;
   const st = bikes.map((b) => b.shown || b.status), nv = st.filter((x) => x === "violation").length, nok = st.filter((x) => x === "ok").length;
   $("nv").textContent = nv;
-  $("disc").className = "disc " + (nv ? "bad" : nok ? "ok" : "wait");
+  $("disc").className = "count " + (nv ? "bad" : nok && nok === st.length ? "ok" : "wait");
   $("viol").textContent = nv ? `${nv} ${nv > 1 ? "riders" : "rider"} without a helmet` :
-    nok === st.length ? "Everyone in view wears a helmet" :
-    nok ? `${nok} with a helmet, ${st.length - nok} being checked` : bikes.length ? "Checking riders" : "Looking for motorbikes";
+    !bikes.length ? "Looking for motorbikes" : nok === st.length ? "Everyone in view wears a helmet" :
+    nok ? `${nok} with a helmet, ${st.length - nok} being checked` : "Checking riders";
   $("seen").textContent = total ? `${total} flagged since you started` : "No riders without a helmet so far";
-  if (total > flagged && !still) { const f = $("flash"); f.classList.remove("on"); void f.offsetWidth; f.classList.add("on"); }
+  if (total > flagged && !still && performance.now() - lastFlash > 4000) {
+    lastFlash = performance.now(); const f = $("flash"); f.classList.remove("on"); void f.offsetWidth; f.classList.add("on");
+  }
   flagged = total;
 }
 
@@ -359,7 +451,7 @@ async function inferLoop() {
         const dets = await detect(frameC, w, h);
         adapt(performance.now() - t0);
         const bikes = composeRiders(dets); track(bikes, true);
-        latest = { dets, bikes };
+        latest = { dets, bikes }; $("err").textContent = "";
         inferTimes.push(performance.now()); if (inferTimes.length > 20) inferTimes.shift();
       } catch (e) { console.error(e); $("err").textContent = "Error: " + (e && e.message || e); await new Promise((r) => setTimeout(r, 500)); }
     } else {
@@ -384,13 +476,15 @@ async function processStill() {
 }
 
 function showUi() {
-  flagged = 0; $("status").classList.add("hidden"); $("hud").classList.remove("hidden"); $("controls").classList.remove("hidden");
+  flagged = 0; $("status").classList.add("hidden");
+  for (const id of ["hud", "controls", "log"]) $(id).classList.remove("hidden");
 }
 
 function resetState() {
   level = benchLevel; settle = 3; emaMs = 0; slowCount = fastCount = 0;
   tileCache.dets = []; tileCache.ts = []; tileCache.key = ""; tileCache.next = 0;
-  tracker.tracks = []; tracker.violators.clear(); latest = { dets: [], bikes: [] }; renderTimes = []; inferTimes = [];
+  tracker.tracks = []; tracker.nextId = 1; tracker.violators.clear(); tracker.number.clear(); tracker.recent = []; tracker.logged = 0; latest = { dets: [], bikes: [] }; renderTimes = []; inferTimes = [];
+  clearLog();
 }
 
 async function startCamera() {
@@ -428,7 +522,10 @@ $("flipBtn").onclick = () => { facing = facing === "environment" ? "user" : "env
 $("speed").onclick = () => {
   const open = $("details").classList.toggle("hidden") === false; $("speed").setAttribute("aria-expanded", open);
 };
-$("stopBtn").onclick = () => { stopSource(); $("status").classList.remove("hidden"); $("hud").classList.add("hidden"); $("controls").classList.add("hidden"); };
+$("stopBtn").onclick = () => {
+  stopSource(); $("status").classList.remove("hidden");
+  for (const id of ["hud", "controls", "log", "details"]) $(id).classList.add("hidden");
+};
 $("file").onchange = (e) => {
   const f = e.target.files[0]; if (!f) return;
   openUrl(URL.createObjectURL(f), f.type.startsWith("image/"));
@@ -439,7 +536,7 @@ document.addEventListener("visibilitychange", async () => {
 
 (async () => {
   try {
-    await Promise.all([loadModel(), document.fonts ? document.fonts.load(`800 16px ${FONT}`).catch(() => {}) : null]);
+    await Promise.all([loadModel(), document.fonts ? document.fonts.load(`700 16px ${FONT}`).catch(() => {}) : null]);
     setProgress(1); document.body.classList.remove("loading");
     $("loadmsg").textContent = backend === "webgpu" ? "Ready. Running on the graphics chip." :
       "Ready. This browser has no WebGPU, so it runs on the processor and checks fewer frames per second.";

@@ -5,109 +5,161 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#2b2e33">
+<meta name="theme-color" content="#0c1116">
 <title>Helmet Check</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --asphalt: #2b2e33; --asphalt-2: #3a3e45; --line: #f2f2ee; --muted: #a9afb8;
-    --sign: #1d5fbf; --stop: #d62a2f; --mark: #f6c500; --go: #2fbf5b;
-    --person: #3d9bff; --helmet: #22c55e; --unknown: #9aa0a8;
+    --paper: #eef1f4; --paper-2: #ffffff; --paper-ink: #111820; --paper-sub: #566370; --paper-line: #d3d9e0;
+    --night: #0c1116; --glass: rgba(12, 17, 22, .74); --glass-line: rgba(255, 255, 255, .1);
+    --text: #f2f4f6; --sub: #9aa6b2;
+    --sign: #1f5fbf; --red: #e5383b; --green: #2fb36d; --bare: #ff8a3d; --person: #4ea1ff; --grey: #c3cad2;
+    --side: 0px; --dock: 112px;
     --safe-t: env(safe-area-inset-top); --safe-b: env(safe-area-inset-bottom);
+    --cond: "Barlow Semi Condensed", "Barlow", -apple-system, system-ui, sans-serif;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--asphalt); color: var(--line);
-    font: 400 16px/1.45 "Overpass", -apple-system, system-ui, sans-serif; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--night); color: var(--text);
+    font: 400 16px/1.45 "Barlow", -apple-system, system-ui, sans-serif; }
   button, label.btn { font: inherit; color: inherit; cursor: pointer; }
-  button:focus-visible, label.btn:focus-within, .chip:focus-visible { outline: 3px solid var(--mark); outline-offset: 3px; }
+  button:focus-visible, label.btn:focus-within, .chip:focus-visible { outline: 3px solid var(--person); outline-offset: 3px; }
   .hidden { display: none !important; }
+  .num { font-family: var(--cond); font-variant-numeric: tabular-nums; }
 
-  /* camera stage */
-  #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #000; }
-  #view { max-width: 100%; max-height: 100%; }
-  #flash { position: fixed; inset: 0; pointer-events: none; box-shadow: inset 0 0 0 0 var(--stop); opacity: 0; }
-  #flash.on { animation: flash 0.9s ease-out; }
-  @keyframes flash { 0% { opacity: 1; box-shadow: inset 0 0 0 10px var(--stop), inset 0 0 80px rgba(214, 42, 47, .55); } 100% { opacity: 0; box-shadow: inset 0 0 0 10px var(--stop), inset 0 0 80px rgba(214, 42, 47, .55); } }
+  /* ---------- start screen ---------- */
+  #status { position: fixed; inset: 0; overflow-y: auto; background: var(--paper); color: var(--paper-ink);
+    padding: calc(var(--safe-t) + 20px) 20px calc(var(--safe-b) + 24px); display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; letter-spacing: .01em; }
+  .brand .logo { width: 30px; height: 30px; border-radius: 50%; background: var(--sign); display: grid; place-items: center; box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--paper-line); }
+  .brand .logo svg { width: 20px; height: 20px; }
+  .brand small { margin-left: auto; font-weight: 500; font-size: 13px; color: var(--paper-sub); }
+  .intro { flex: 1; display: grid; gap: 28px; align-content: center; max-width: 1080px; width: 100%; margin: 0 auto; padding: 28px 0 8px; }
+  h1 { font-weight: 700; font-size: clamp(38px, 9vw, 64px); line-height: 1.02; letter-spacing: -0.015em; margin: 0 0 14px; }
+  .lede { font-size: 18px; line-height: 1.5; color: var(--paper-sub); margin: 0 0 26px; max-width: 38ch; }
+  .facts { display: grid; grid-template-columns: repeat(3, auto); gap: 6px 26px; justify-content: start; margin: 0 0 28px; padding: 0; list-style: none; }
+  .facts li { display: grid; }
+  .facts b { font-family: var(--cond); font-weight: 600; font-size: 26px; line-height: 1.1; }
+  .facts span { font-size: 13px; color: var(--paper-sub); }
 
-  /* start screen: asphalt with a centre lane line */
-  #status { position: fixed; inset: 0; overflow-y: auto; padding: calc(var(--safe-t) + 40px) 28px calc(var(--safe-b) + 28px) 64px;
-    display: flex; flex-direction: column; justify-content: center;
-    background:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"),
-      var(--asphalt); }
-  #status::before { content: ""; position: fixed; top: 0; bottom: 0; left: 26px; width: 8px;
-    background: repeating-linear-gradient(to bottom, var(--line) 0 56px, transparent 56px 112px); opacity: .85; }
-  body.loading #status::before { animation: drive 0.7s linear infinite; }
-  @keyframes drive { from { background-position: 0 0; } to { background-position: 0 112px; } }
-  .content { max-width: 440px; }
-
-  .sign { width: 112px; height: 112px; border-radius: 50%; background: var(--sign); display: grid; place-items: center;
-    box-shadow: 0 0 0 5px var(--line), 0 10px 30px rgba(0, 0, 0, .35); margin-bottom: 34px; }
-  .sign svg { width: 70px; height: 70px; }
-  h1 { font-weight: 900; font-size: 52px; line-height: 0.95; letter-spacing: -0.02em; margin: 0 0 16px; }
-  .lede { font-size: 18px; color: var(--line); margin: 0 0 28px; max-width: 34ch; }
-
-  .load { margin: 0 0 26px; }
-  .bar { height: 6px; border-radius: 3px; background: var(--asphalt-2); overflow: hidden; margin-bottom: 10px; }
-  .bar i { display: block; height: 100%; width: 0; background: var(--mark); transition: width .3s; }
+  .load { margin: 0 0 18px; }
+  .bar { height: 4px; border-radius: 2px; background: var(--paper-line); overflow: hidden; margin-bottom: 10px; max-width: 360px; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--sign); transition: width .3s; }
   body:not(.loading) .bar { display: none; }
-  #loadmsg { font-size: 14px; color: var(--muted); margin: 0; }
+  #loadmsg { font-size: 14px; color: var(--paper-sub); margin: 0; }
 
-  .actions { display: flex; flex-direction: column; gap: 12px; }
-  .btn-main { border: 0; border-radius: 16px; min-height: 60px; padding: 0 22px; background: var(--mark); color: var(--asphalt);
-    font-weight: 800; font-size: 19px; display: flex; align-items: center; justify-content: center; gap: 12px; }
-  .btn-main svg { width: 24px; height: 24px; }
-  .btn-alt { border: 2px solid var(--asphalt-2); border-radius: 16px; min-height: 52px; padding: 0 22px; background: transparent;
-    font-weight: 600; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .btn-main { border: 0; border-radius: 12px; min-height: 56px; padding: 0 24px; background: var(--paper-ink); color: #fff;
+    font-weight: 600; font-size: 18px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; flex: 1 1 220px; max-width: 280px; }
+  .btn-main svg { width: 22px; height: 22px; }
+  .btn-alt { border: 1.5px solid var(--paper-line); border-radius: 12px; min-height: 56px; padding: 0 22px; background: var(--paper-2);
+    font-weight: 600; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; flex: 1 1 200px; max-width: 280px; }
+  .btn-alt svg { width: 20px; height: 20px; }
   .btn-main:active, .btn-alt:active { transform: scale(.98); }
-  .foot { margin: 28px 0 0; font-size: 13px; color: var(--muted); max-width: 40ch; }
+  .foot { margin: 22px 0 0; font-size: 13px; color: var(--paper-sub); max-width: 46ch; }
 
-  /* live: top bar */
-  #hud { position: fixed; top: 0; left: 0; right: 0; padding: calc(var(--safe-t) + 12px) 14px 34px;
-    background: linear-gradient(to bottom, rgba(0, 0, 0, .72), rgba(0, 0, 0, .45) 60%, transparent); }
-  .top { display: flex; align-items: center; gap: 12px; }
-  .disc { flex: none; width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; transition: background .2s, box-shadow .2s; }
-  .disc svg { width: 36px; height: 36px; }
-  .disc b { display: none; font-weight: 900; font-size: 28px; line-height: 1; color: var(--stop); padding-top: 4px; }
-  .disc.ok { background: var(--sign); box-shadow: 0 0 0 3px var(--line); }
-  .disc.wait { background: var(--asphalt-2); box-shadow: 0 0 0 3px var(--muted); }
-  .disc.bad { background: #fff; box-shadow: inset 0 0 0 7px var(--stop), 0 0 0 3px #fff; }
-  .disc.bad svg { display: none; } .disc.bad b { display: block; }
-  .verdict { flex: 1; min-width: 0; }
-  #viol { font-weight: 800; font-size: 19px; line-height: 1.15; }
-  #seen { font-size: 13px; color: var(--muted); }
-  .chip { flex: none; border: 0; border-radius: 12px; padding: 7px 10px 5px; background: rgba(255, 255, 255, .14); text-align: center; line-height: 1.1; }
-  .chip b { display: block; font-weight: 800; font-size: 18px; font-variant-numeric: tabular-nums; }
-  .chip span { font-size: 11px; color: var(--muted); }
+  .preview { margin: 0; }
+  .preview svg { display: block; width: 100%; height: auto; border-radius: 18px; box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 18px 40px -18px rgba(17, 24, 32, .45); }
+  .preview figcaption { font-size: 13px; color: var(--paper-sub); margin-top: 10px; }
 
-  .counts { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; padding-left: 2px; font-size: 14px; }
-  .counts span { display: flex; align-items: center; gap: 7px; }
-  .counts i { width: 12px; height: 12px; border-radius: 3px; border: 2.5px solid; }
-  .counts b { font-weight: 800; font-variant-numeric: tabular-nums; }
-  #details { margin-top: 10px; font-size: 12px; color: var(--muted); display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; }
-  #details b { color: var(--line); font-weight: 600; font-variant-numeric: tabular-nums; }
-  #err { color: #ff8a8d; font-size: 13px; margin-top: 6px; }
+  @media (min-width: 860px) {
+    #status { padding: calc(var(--safe-t) + 28px) 48px 32px; }
+    .intro { grid-template-columns: 1fr 1.05fr; gap: 64px; }
+  }
+  @media (max-width: 859px) { .preview { max-width: 520px; } }
 
-  /* live: bottom dock */
-  #controls { position: fixed; left: 0; right: 0; bottom: 0; padding: 40px 0 calc(var(--safe-b) + 18px);
-    display: flex; align-items: center; justify-content: center; gap: 44px;
-    background: linear-gradient(to top, rgba(0, 0, 0, .6), transparent); }
-  .round { width: 54px; height: 54px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .16); display: grid; place-items: center;
-    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
-  .round svg { width: 26px; height: 26px; }
-  .stop { width: 74px; height: 74px; border-radius: 50%; border: 4px solid #fff; background: transparent; display: grid; place-items: center; }
-  .stop i { width: 26px; height: 26px; border-radius: 6px; background: var(--stop); }
+  /* ---------- live view ---------- */
+  #stage { position: fixed; top: 0; left: 0; bottom: 0; right: var(--side); display: flex; align-items: center; justify-content: center; background: #000; }
+  #view { max-width: 100%; max-height: 100%; }
+  #flash { position: fixed; top: 0; left: 0; bottom: 0; right: var(--side); pointer-events: none; opacity: 0; }
+  #flash.on { animation: flash 1s ease-out; }
+  @keyframes flash { from { opacity: 1; box-shadow: inset 0 0 0 4px var(--red), inset 0 0 90px rgba(229, 56, 59, .45); } to { opacity: 0; box-shadow: inset 0 0 0 4px var(--red), inset 0 0 90px rgba(229, 56, 59, .45); } }
+
+  .glass { background: var(--glass); border: 1px solid var(--glass-line); -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); }
+
+  #hud { position: fixed; top: calc(var(--safe-t) + 12px); left: 12px; right: calc(var(--side) + 12px); display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; pointer-events: none; }
+  #hud > * { pointer-events: auto; }
+  .state { flex: 0 1 auto; width: max-content; display: flex; align-items: center; gap: 12px; border-radius: 16px; padding: 10px 16px 10px 10px; min-width: 0; max-width: 460px; }
+  .count { flex: none; width: 52px; height: 52px; border-radius: 12px; display: grid; place-items: center; background: rgba(255,255,255,.08); transition: background .25s; }
+  .count b { font-family: var(--cond); font-weight: 700; font-size: 30px; line-height: 1; }
+  .count svg { width: 30px; height: 30px; }
+  .count b, .count svg { display: none; }
+  .count.bad { background: var(--red); } .count.bad b { display: block; }
+  .count.ok { background: var(--green); } .count.ok .i-ok { display: block; }
+  .count.wait .i-wait { display: block; opacity: .7; }
+  .verdict { min-width: 0; }
+  #viol { font-weight: 600; font-size: 18px; line-height: 1.2; }
+  @media (max-width: 480px) { #viol { font-size: 16px; } .count { width: 46px; height: 46px; } .count b { font-size: 26px; } .state { padding: 8px 12px 8px 8px; } }
+  #seen { font-size: 13px; color: var(--sub); }
+  .spacer { flex: 1 0 0; }
+  @media (max-width: 600px) { .state { flex: 1 1 0; width: auto; } .spacer { display: none; } }
+  .chip { flex: none; border-radius: 14px; padding: 8px 12px 7px; text-align: right; line-height: 1.1; color: var(--text); }
+  .chip b { display: block; font-family: var(--cond); font-weight: 600; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .chip span { font-size: 11px; color: var(--sub); }
+  .live { display: inline-flex; align-items: center; gap: 6px; }
+  .live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--red); animation: blink 1.6s infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+
+  #details { position: fixed; top: calc(var(--safe-t) + 128px); right: calc(var(--side) + 12px); border-radius: 14px; padding: 12px 14px; font-size: 13px; color: var(--sub);
+    display: grid; grid-template-columns: auto auto; gap: 4px 16px; max-width: calc(100% - 24px); }
+  #details b { color: var(--text); font-weight: 600; font-family: var(--cond); font-variant-numeric: tabular-nums; text-align: right; }
+  #err { position: fixed; top: calc(var(--safe-t) + 92px); left: 12px; color: #ff9b9d; font-size: 13px; }
+
+  #legend { flex-basis: 100%; border-radius: 12px; padding: 7px 12px; display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 13px; color: var(--sub); }
+  #legend span { display: inline-flex; align-items: center; gap: 7px; }
+  #legend i { width: 11px; height: 11px; border-radius: 2px; border: 2px solid; }
+  #legend b { color: var(--text); font-family: var(--cond); font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
+
+  #controls { position: fixed; left: 0; right: var(--side); bottom: 0; height: calc(var(--dock) + var(--safe-b)); padding-bottom: var(--safe-b);
+    display: flex; align-items: center; justify-content: center; gap: 40px; background: linear-gradient(to top, rgba(0,0,0,.55), transparent); }
+  .round { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; }
+  .round svg { width: 24px; height: 24px; }
+  .stop { width: 70px; height: 70px; border-radius: 50%; border: 3px solid #fff; background: rgba(0,0,0,.25); display: grid; place-items: center; }
+  .stop i { width: 24px; height: 24px; border-radius: 5px; background: var(--red); }
   .round:active, .stop:active { transform: scale(.94); }
 
-  @media (min-width: 700px) { h1 { font-size: 64px; } #status { padding-left: 120px; } #status::before { left: 60px; } }
-  @media (prefers-reduced-motion: reduce) { body.loading #status::before { animation: none; } #flash.on { animation-duration: 0.01s; } }
+  /* violation log: horizontal strip above the dock on phones, a side column on wide screens */
+  #log { position: fixed; left: 0; right: 0; bottom: calc(var(--dock) + var(--safe-b)); padding: 0 12px; }
+  .log-head { display: flex; align-items: baseline; gap: 8px; margin: 0 2px 6px; font-weight: 600; font-size: 14px; }
+  .log-head .num { font-size: 15px; color: var(--sub); }
+  .log-head small { margin-left: auto; font-weight: 400; font-size: 12px; color: var(--sub); }
+  #logList { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0; padding: 0; list-style: none; }
+  #logList::-webkit-scrollbar { display: none; }
+  .card { flex: none; width: 112px; border-radius: 12px; overflow: hidden; background: var(--glass); border: 1px solid var(--glass-line); }
+  .card img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: #222; }
+  .card div { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 8px 6px; font-size: 12px; color: var(--sub); }
+  .card b { color: var(--text); font-family: var(--cond); font-weight: 600; font-size: 14px; }
+  .card.new { animation: arrive .5s ease-out; }
+  @keyframes arrive { from { transform: translateY(8px); opacity: 0; } }
+  .empty { font-size: 13px; color: var(--sub); padding: 2px 2px 4px; }
+
+  @media (min-width: 900px) and (orientation: landscape) {
+    :root { --side: 300px; --dock: 104px; }
+    #log { top: 0; bottom: 0; left: auto; right: 0; width: var(--side); padding: calc(var(--safe-t) + 18px) 16px 16px; background: var(--night); border-left: 1px solid var(--glass-line);
+      display: flex; flex-direction: column; }
+    .log-head { font-size: 16px; margin-bottom: 12px; }
+    #logList { flex-direction: column; overflow-x: hidden; overflow-y: auto; gap: 10px; }
+    .card { width: auto; display: grid; grid-template-columns: 96px 1fr; background: rgba(255,255,255,.04); }
+    .card img { height: 96px; }
+    .card div { flex-direction: column; justify-content: center; align-items: flex-start; gap: 2px; padding: 8px 12px; font-size: 13px; }
+    .card b { font-size: 18px; }
+    .card em { font-style: normal; color: var(--red); font-weight: 600; }
+    .empty { padding: 10px 0; max-width: 26ch; line-height: 1.5; }
+    #legend { flex-basis: auto; align-self: stretch; align-items: center; padding: 8px 16px; gap: 4px 18px; }
+    #hud { flex-wrap: nowrap; } .spacer { order: 3; } #speed { order: 4; }
+    #details { top: calc(var(--safe-t) + 92px); }
+  }
+  @media not all and (min-width: 900px) and (orientation: landscape) { .card em { display: none; } }
+
+  @media (prefers-reduced-motion: reduce) { #flash.on, .card.new, .live::before { animation: none; } }
 </style>
 </head>
 <body class="loading">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="helmet" viewBox="0 0 64 64"><path fill="#fff" d="M10 38a22 22 0 0 1 44 0v6a5 5 0 0 1-5 5H15a5 5 0 0 1-5-5z"/><rect x="15" y="31" width="34" height="10" rx="5" fill="var(--sign)"/><rect x="30" y="14" width="4" height="13" rx="2" fill="var(--sign)" opacity=".55"/><path d="M20 49v5h24v-5" fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></symbol>
+  <symbol id="helmet" viewBox="0 0 64 64"><path fill="#fff" d="M10 38a22 22 0 0 1 44 0v6a5 5 0 0 1-5 5H15a5 5 0 0 1-5-5z"/><rect x="15" y="31" width="34" height="10" rx="5" fill="var(--sign)"/><path d="M20 49v5h24v-5" fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></symbol>
+  <symbol id="scan" viewBox="0 0 24 24"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="2.2" fill="#fff"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 
 <div id="stage"><canvas id="view"></canvas></div>
@@ -115,54 +167,110 @@
 <video id="video" playsinline muted autoplay class="hidden"></video>
 
 <main id="status">
-  <div class="content">
-    <div class="sign" aria-hidden="true"><svg><use href="#helmet"/></svg></div>
-    <h1>Helmet check</h1>
-    <p class="lede">Point your phone at the street. It finds every motorbike, its riders and their helmets, and flags riders without one.</p>
-    <div class="load">
-      <div class="bar"><i id="bar"></i></div>
-      <p id="loadmsg">Loading the model…</p>
+  <header class="brand">
+    <span class="logo" aria-hidden="true"><svg viewBox="0 0 64 64"><use href="#helmet"/></svg></span>
+    Helmet Check
+    <small>On-device, no upload</small>
+  </header>
+  <div class="intro">
+    <div>
+      <h1>Spot riders without a helmet, live.</h1>
+      <p class="lede">Point the camera at traffic. Every motorbike is tracked, each rider's head is checked, and riders without a helmet are flagged with a snapshot.</p>
+      <ul class="facts">
+        <li><b>4</b><span>things it detects</span></li>
+        <li><b>10 MB</b><span>model, YOLO26n</span></li>
+        <li><b>0</b><span>images sent anywhere</span></li>
+      </ul>
+      <div class="load">
+        <div class="bar"><i id="bar"></i></div>
+        <p id="loadmsg">Loading the model…</p>
+      </div>
+      <div class="actions">
+        <button id="startBtn" class="btn-main hidden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l2-2.5h6L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="4"/></svg>Start camera</button>
+        <label class="btn-alt btn hidden" id="fileLbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>Check a photo or video<input id="file" type="file" accept="image/*,video/*" hidden></label>
+      </div>
+      <p class="foot">Runs entirely in this browser on the phone's graphics chip. Works best with the phone held steady, facing the road.</p>
     </div>
-    <div class="actions">
-      <button id="startBtn" class="btn-main hidden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l2-2.5h6L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="4"/></svg>Start camera</button>
-      <label class="btn-alt btn hidden" id="fileLbl">Check a photo or video<input id="file" type="file" accept="image/*,video/*" hidden></label>
-    </div>
-    <p class="foot">Runs entirely on this phone. Nothing you film leaves the device.</p>
+    <figure class="preview">
+      <svg viewBox="0 0 520 340" role="img" aria-label="Example: a scooter rider without a helmet is flagged in red, the bare head is boxed in orange">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3541"/><stop offset=".62" stop-color="#1b232c"/><stop offset="1" stop-color="#151b22"/></linearGradient>
+        </defs>
+        <rect width="520" height="340" fill="url(#sky)"/>
+        <path d="M0 262 H520" stroke="#2c3743" stroke-width="2"/>
+        <g fill="#394552"><rect x="40" y="304" width="64" height="7" rx="2"/><rect x="176" y="304" width="64" height="7" rx="2"/><rect x="312" y="304" width="64" height="7" rx="2"/><rect x="448" y="304" width="64" height="7" rx="2"/></g>
+        <g fill="none" stroke="#8d99a6" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="170" cy="248" r="27"/><circle cx="330" cy="248" r="27"/>
+          <path d="M146 228 Q150 196 178 194 H238 Q248 194 248 206 V222 H296 L318 158"/>
+          <path d="M314 154 H336"/><path d="M318 160 L330 246"/>
+          <path d="M214 190 L238 132"/><path d="M238 136 L314 156"/><path d="M216 192 L276 196 L282 222"/>
+        </g>
+        <circle cx="247" cy="110" r="19" fill="#8d99a6"/>
+        <g fill="none" stroke="#dbe2e8" stroke-width="2" opacity=".55"><rect x="194" y="84" width="152" height="146" rx="3" stroke="#4ea1ff"/></g>
+        <rect x="224" y="86" width="46" height="46" rx="3" fill="none" stroke="#ff8a3d" stroke-width="3"/>
+        <g font-family="Barlow Semi Condensed, Barlow, sans-serif" font-weight="600">
+          <rect x="224" y="60" width="72" height="22" rx="4" fill="#ff8a3d"/><text x="232" y="76" font-size="14" fill="#2a0d05">Bare 91%</text>
+        </g>
+        <g fill="none" stroke="#e5383b" stroke-width="5" stroke-linecap="round">
+          <path d="M128 112 V84 H156"/><path d="M372 84 H400 V112"/><path d="M128 254 V282 H156"/><path d="M372 282 H400 V254"/>
+        </g>
+        <rect x="128" y="84" width="272" height="198" fill="none" stroke="#e5383b" stroke-width="1.5" opacity=".45"/>
+        <g font-family="Barlow Semi Condensed, Barlow, sans-serif">
+          <rect x="128" y="290" width="138" height="28" rx="5" fill="#e5383b"/>
+          <text x="139" y="310" font-size="17" font-weight="700" fill="#fff">No helmet</text><text x="226" y="310" font-size="15" font-weight="500" fill="#ffd9da">#12</text>
+        </g>
+        <g font-family="Barlow, sans-serif">
+          <rect x="16" y="16" width="214" height="52" rx="12" fill="rgba(12,17,22,.74)" stroke="rgba(255,255,255,.1)"/>
+          <rect x="24" y="24" width="36" height="36" rx="8" fill="#e5383b"/><text x="42" y="50" text-anchor="middle" font-family="Barlow Semi Condensed, Barlow, sans-serif" font-size="22" font-weight="700" fill="#fff">1</text>
+          <text x="70" y="40" font-size="14" font-weight="600" fill="#f2f4f6">1 rider without a helmet</text>
+          <text x="70" y="57" font-size="11" fill="#9aa6b2">12 flagged since you started</text>
+        </g>
+      </svg>
+      <figcaption>What you see: the motorbike is boxed in red, the bare head in orange, and the rider is added to the violation log.</figcaption>
+    </figure>
   </div>
 </main>
 
 <div id="hud" class="hidden">
-  <div class="top">
-    <div id="disc" class="disc wait"><svg aria-hidden="true"><use href="#helmet"/></svg><b id="nv">0</b></div>
+  <div class="state glass">
+    <div id="disc" class="count wait"><b id="nv">0</b><svg class="i-ok" aria-hidden="true"><use href="#check"/></svg><svg class="i-wait" aria-hidden="true"><use href="#scan"/></svg></div>
     <div class="verdict" aria-live="polite">
-      <div id="viol">Looking for riders</div>
+      <div id="viol">Looking for motorbikes</div>
       <div id="seen">No riders without a helmet so far</div>
     </div>
-    <button id="speed" class="chip" aria-expanded="false" aria-controls="details"><b id="dps">0</b><span>checks/s</span></button>
   </div>
-  <div class="counts">
-    <span><i style="border-color:var(--line)"></i>Motorbikes <b id="nb">0</b></span>
-    <span><i style="border-color:var(--person)"></i>Riders <b id="np">0</b></span>
-    <span><i style="border-color:var(--helmet)"></i>Helmets <b id="nh">0</b></span>
-    <span><i style="border-color:#ff6a2b"></i>Bare heads <b id="nn">0</b></span>
-  </div>
-  <div id="details" class="hidden">
-    <span>Engine</span><b id="backend"></b>
-    <span>Input size</span><b id="msize"></b>
-    <span>Time per check</span><b><span id="ms">0</span> ms</b>
-    <span>Screen refresh</span><b><span id="fps">0</span> fps</b>
-    <span>Riders flagged in total</span><b id="uv">0</b>
-  </div>
-  <div id="err"></div>
+  <div class="spacer"></div>
+  <button id="speed" class="chip glass" aria-expanded="false" aria-controls="details"><b id="dps">0</b><span class="live">checks/s</span></button>
+  <div id="legend" class="glass">
+  <span><i style="border-color:#f2f4f6"></i>Motorbikes <b id="nb">0</b></span>
+  <span><i style="border-color:var(--person)"></i>People <b id="np">0</b></span>
+  <span><i style="border-color:var(--green)"></i>Helmets <b id="nh">0</b></span>
+  <span><i style="border-color:var(--bare)"></i>Bare heads <b id="nn">0</b></span>
 </div>
+</div>
+<div id="details" class="glass hidden">
+  <span>Engine</span><b id="backend"></b>
+  <span>Input size</span><b id="msize"></b>
+  <span>Time per check</span><b><span id="ms">0</span> ms</b>
+  <span>Screen refresh</span><b><span id="fps">0</span> fps</b>
+  <span>Riders flagged in total</span><b id="uv">0</b>
+</div>
+<div id="err"></div>
+
+
+<aside id="log" class="hidden" aria-label="Riders flagged without a helmet">
+  <div class="log-head">Violations <span class="num" id="logCount">0</span><small id="logHint">newest first</small></div>
+  <p class="empty" id="logEmpty">Riders without a helmet appear here with a snapshot and the time they were seen.</p>
+  <ul id="logList"></ul>
+</aside>
 
 <div id="controls" class="hidden">
-  <label class="round btn" aria-label="Check a photo or video" for="file"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg></label>
+  <label class="round glass btn" aria-label="Check a photo or video" for="file"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg></label>
   <button id="stopBtn" class="stop" aria-label="Stop"><i></i></button>
-  <button id="flipBtn" class="round" aria-label="Switch camera"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 21v-5h-5"/></svg></button>
+  <button id="flipBtn" class="round glass" aria-label="Switch camera"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 21v-5h-5"/></svg></button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.webgpu.min.js"></script>
-<script src="app.js?v=v8"></script>
+<script src="app.js?v=v8ui"></script>
 </body>
 </html>
