@@ -82,7 +82,7 @@
   .chip b { display: block; font-weight: 800; font-size: 18px; font-variant-numeric: tabular-nums; }
   .chip span { font-size: 11px; color: var(--muted); }
 
-  .counts { display: flex; gap: 18px; margin-top: 12px; padding-left: 2px; font-size: 14px; }
+  .counts { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; padding-left: 2px; font-size: 14px; }
   .counts span { display: flex; align-items: center; gap: 7px; }
   .counts i { width: 12px; height: 12px; border-radius: 3px; border: 2.5px solid; }
   .counts b { font-weight: 800; font-variant-numeric: tabular-nums; }
@@ -144,6 +144,7 @@
     <span><i style="border-color:var(--line)"></i>Motorbikes <b id="nb">0</b></span>
     <span><i style="border-color:var(--person)"></i>Riders <b id="np">0</b></span>
     <span><i style="border-color:var(--helmet)"></i>Helmets <b id="nh">0</b></span>
+    <span><i style="border-color:#ff6a2b"></i>Bare heads <b id="nn">0</b></span>
   </div>
   <div id="details" class="hidden">
     <span>Engine</span><b id="backend"></b>
@@ -162,6 +163,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.webgpu.min.js"></script>
-<script src="app.js?v=v4b-ui"></script>
+<script src="app.js?v=v8"></script>
 </body>
 </html>

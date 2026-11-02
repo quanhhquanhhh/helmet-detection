@@ -1,9 +1,10 @@
-const CLASSES = ["motorbike", "person", "helmet"];
-const COLORS = ["#f2f2ee", "#3d9bff", "#22c55e"];
+const CLASSES = ["motorbike", "person", "helmet", "no_helmet"];
+const COLORS = ["#f2f2ee", "#3d9bff", "#22c55e", "#ff6a2b"];
 const STATUS_COLORS = { violation: "#d62a2f", ok: "#2fbf5b", unknown: "#9aa0a8" };
 const FONT = "Overpass, -apple-system, system-ui, sans-serif";
-const CONF = [0.6, 0.5, 0.4];
-const CAND_CONF = 0.3;
+const CONF = [0.55, 0.5, 0.25, 0.15];  // motorbike, person, helmet from val; no_helmet 0.15 (results/v7_eval.csv)
+const INFER_BARE = false;  // v8 marks bare heads itself; guessing from a missing head box lowered F1 on both test sets
+const CAND_CONF = 0.15;
 const HELMET_ON_HEAD = 0.3;
 const TARGET_MS = 62;
 const IOU_NMS = 0.6;
@@ -46,7 +47,7 @@ async function loadModel() {
   ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 2) : 1;
   const parts = [];
   for (let i = 1; i <= 9; i++) {
-    const r = await fetch(`model_part${i}.bin?v=v4b`);
+    const r = await fetch(`model_part${i}.bin?v=v8`);
     if (!r.ok) break;
     parts.push(new Uint8Array(await r.arrayBuffer()));
     setProgress(Math.min(0.7, 0.05 + 0.33 * parts.length));
@@ -186,7 +187,7 @@ function adapt(ms) {
 
 function composeRiders(dets) {
   const bikes = dets.filter((d) => d[5] === 0), persons = dets.filter((d) => d[5] === 1);
-  const heads = dets.filter((d) => d[5] === 2).sort((a, b) => b[4] - a[4]);
+  const heads = dets.filter((d) => d[5] === 2 || d[5] === 3).sort((a, b) => b[4] - a[4]);
   const out = bikes.map((b) => ({ box: b, riders: [], status: "unknown" }));
   const riders = [];
   for (const p of persons) {
@@ -239,7 +240,7 @@ function composeRiders(dets) {
     }
   }
   for (const r of riders) {
-    r.status = r.head ? "helmet" : (r.person && r.person[3] - r.person[1] >= RIDER_MIN_PX ? "no_helmet" : "unknown");
+    r.status = r.head ? (r.head[5] === 2 ? "helmet" : "no_helmet") : (INFER_BARE && r.person && r.person[3] - r.person[1] >= RIDER_MIN_PX ? "no_helmet" : "unknown");
     out[r.bike].riders.push(r);
   }
   for (const b of out) {
@@ -287,12 +288,19 @@ function box(b, color, width, r) {
   ctx.stroke();
 }
 
+// display only: one head box per head (helmet and no_helmet boxes often stack on the same head)
+function shownDets(dets) {
+  const heads = [];
+  for (const d of dets.filter((d) => d[5] >= 2).sort((a, b) => b[4] - a[4])) if (!heads.some((k) => iou(k, d) > 0.3)) heads.push(d);
+  return dets.filter((d) => d[5] < 2).concat(heads);
+}
+
 function drawResults({ dets, bikes }) {
   const s = Math.max(1, view.width / Math.max(1, view.getBoundingClientRect().width));
-  for (const d of dets) {
+  for (const d of shownDets(dets)) {
     if (d[5] === 0) continue;
-    box(d, COLORS[d[5]], (d[5] === 2 ? 2.5 : 2) * s, 4 * s);
-    if (d[5] === 2) label(`${Math.round(100 * d[4])}%`, d[0], d[1] - 3 * s, COLORS[2], s * 0.8, "#0d2a16");
+    box(d, COLORS[d[5]], (d[5] >= 2 ? 2.5 : 2) * s, 4 * s);
+    if (d[5] >= 2) label(`${Math.round(100 * d[4])}%`, d[0], d[1] - 3 * s, COLORS[d[5]], s * 0.8, d[5] === 2 ? "#0d2a16" : "#2a0d05");
   }
   for (const b of bikes) {
     const bb = b.drawBox || b.box, st = b.shown || b.status, col = STATUS_COLORS[st];
@@ -313,7 +321,8 @@ function updateHud() {
   $("msize").textContent = `${LEVELS[level].name} px (prep ${shown.prep.toFixed(0)} ms, GPU ${shown.run.toFixed(0)} ms)`;
   const { dets, bikes } = latest;
   $("nb").textContent = dets.filter((d) => d[5] === 0).length; $("np").textContent = dets.filter((d) => d[5] === 1).length;
-  $("nh").textContent = dets.filter((d) => d[5] === 2).length;
+  const heads = shownDets(dets);
+  $("nh").textContent = heads.filter((d) => d[5] === 2).length; $("nn").textContent = heads.filter((d) => d[5] === 3).length;
   const total = tracker.violators.size; $("uv").textContent = total;
   const st = bikes.map((b) => b.shown || b.status), nv = st.filter((x) => x === "violation").length, nok = st.filter((x) => x === "ok").length;
   $("nv").textContent = nv;
