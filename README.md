@@ -7,7 +7,7 @@ Open the page on a phone, press **Start camera** and point it at the street. The
 
 * Model: YOLO26n (classes motorbike, person, helmet, no_helmet) fine-tuned from COCO weights on our Vietnamese traffic dataset
   + 191 street-level photos + 640 frames of the HELMET dataset (Myanmar) labelled automatically from its per-motorbike
-  annotations, exported to ONNX
+  annotations + 549 frames of two Hanoi rider's-view street videos (heads checked by eye), exported to ONNX
   (one dynamic-size model, split into `model_part1.bin` + `model_part2.bin`).
 * Runs **entirely on the device** with ONNX Runtime Web (WebGPU, or WebAssembly as a fallback). No image leaves the phone.
 * Helmet status: a person overlapping a motorbike is a rider; a helmet box in the rider's head region means *helmet*,
@@ -16,4 +16,4 @@ Open the page on a phone, press **Start camera** and point it at the street. The
 
 HELMET dataset: H. Lin, J. D. Deng, D. Albers, F. W. Siebert, "Helmet Use Detection of Tracked Motorcycles Using CNN-Based
 Multi-Task Learning", IEEE Access, 2020; data by F. W. Siebert and H. Lin, https://osf.io/4pwj8, licensed CC BY 4.0.
-Only the trained model is published here; no dataset images are included.
+Only the trained model is published here; no dataset images or video frames are included.
