@@ -15,7 +15,7 @@
     --paper: #eef1f4; --paper-2: #ffffff; --paper-ink: #111820; --paper-sub: #566370; --paper-line: #d3d9e0;
     --night: #0c1116; --glass: rgba(12, 17, 22, .74); --glass-line: rgba(255, 255, 255, .1);
     --text: #f2f4f6; --sub: #9aa6b2;
-    --sign: #1f5fbf; --red: #e5383b; --green: #2fb36d; --bare: #ff8a3d; --person: #4ea1ff; --grey: #c3cad2;
+    --sign: #1f5fbf; --red: #e5383b; --green: #2fb36d; --bare: #e5383b; --person: #4ea1ff; --grey: #c3cad2;
     --side: 0px; --dock: 112px;
     --safe-t: env(safe-area-inset-top); --safe-b: env(safe-area-inset-bottom);
     --cond: "Barlow Semi Condensed", "Barlow", -apple-system, system-ui, sans-serif;
@@ -219,18 +219,9 @@
           <path d="M214 190 L238 132"/><path d="M238 136 L314 156"/><path d="M216 192 L276 196 L282 222"/>
         </g>
         <circle cx="247" cy="110" r="19" fill="#8d99a6"/>
-        <g fill="none" stroke="#dbe2e8" stroke-width="2" opacity=".55"><rect x="194" y="84" width="152" height="146" rx="3" stroke="#4ea1ff"/></g>
-        <rect x="224" y="86" width="46" height="46" rx="3" fill="none" stroke="#ff8a3d" stroke-width="3"/>
+        <rect x="224" y="86" width="46" height="46" rx="3" fill="none" stroke="#e5383b" stroke-width="3"/>
         <g font-family="Barlow Semi Condensed, Barlow, sans-serif" font-weight="600">
-          <rect x="224" y="60" width="104" height="22" rx="4" fill="#ff8a3d"/><text x="232" y="76" font-size="14" fill="#2a0d05">Không mũ 91%</text>
-        </g>
-        <g fill="none" stroke="#e5383b" stroke-width="5" stroke-linecap="round">
-          <path d="M128 112 V84 H156"/><path d="M372 84 H400 V112"/><path d="M128 254 V282 H156"/><path d="M372 282 H400 V254"/>
-        </g>
-        <rect x="128" y="84" width="272" height="198" fill="none" stroke="#e5383b" stroke-width="1.5" opacity=".45"/>
-        <g font-family="Barlow Semi Condensed, Barlow, sans-serif">
-          <rect x="128" y="290" width="138" height="28" rx="5" fill="#e5383b"/>
-          <text x="139" y="310" font-size="17" font-weight="700" fill="#fff">Không mũ</text><text x="226" y="310" font-size="15" font-weight="500" fill="#ffd9da">#12</text>
+          <rect x="224" y="60" width="104" height="22" rx="4" fill="#e5383b"/><text x="232" y="76" font-size="14" fill="#fff">Không mũ #12</text>
         </g>
         <g font-family="Barlow, sans-serif">
           <rect x="16" y="16" width="214" height="52" rx="12" fill="rgba(12,17,22,.74)" stroke="rgba(255,255,255,.1)"/>
@@ -239,7 +230,7 @@
           <text x="70" y="57" font-size="11" fill="#9aa6b2">Đã ghi 12 trường hợp</text>
         </g>
       </svg>
-      <figcaption>Bạn sẽ thấy: xe máy vi phạm có khung đỏ, đầu không mũ có khung cam, và người đó được thêm vào nhật ký vi phạm.</figcaption>
+      <figcaption>Bạn sẽ thấy: xe máy và người được đánh dấu, đầu đội mũ có khung xanh, đầu không đội mũ có khung đỏ, kèm ảnh chụp người vi phạm.</figcaption>
     </figure>
   </div>
 </main>
@@ -258,7 +249,7 @@
   <span><i style="border-color:#f2f4f6"></i>Xe máy <b id="nb">0</b></span>
   <span><i style="border-color:var(--person)"></i>Người <b id="np">0</b></span>
   <span><i style="border-color:var(--green)"></i>Mũ bảo hiểm <b id="nh">0</b></span>
-  <span><i style="border-color:var(--bare)"></i>Không mũ <b id="nn">0</b></span>
+  <span><i style="border-color:var(--red)"></i>Không mũ <b id="nn">0</b></span>
 </div>
 </div>
 <div id="details" class="glass hidden">
@@ -275,12 +266,10 @@
     <small class="rec">Khuyên dùng 0.55. Thấp hơn thì nhận thêm xe ở xa nhưng dễ nhận nhầm vật khác là xe máy.</small></label>
   <label>Người <output id="sPersonV"></output><input id="sPerson" type="range" min="0.05" max="0.95" step="0.01" value="0.5">
     <small class="rec">Khuyên dùng 0.50. Dùng để biết ai đang ngồi trên xe; cao hơn thì người ở xa bị bỏ qua.</small></label>
-  <label>Mũ bảo hiểm <output id="sHelmetV"></output><input id="sHelmet" type="range" min="0.05" max="0.95" step="0.01" value="0.25">
-    <small class="rec">Khuyên dùng 0.25. Từ 0.10 đến 0.25 kết quả như nhau; trên 0.35 nhiều người đội mũ bị để "chưa rõ".</small></label>
+  <label>Mũ bảo hiểm <output id="sHelmetV"></output><input id="sHelmet" type="range" min="0.05" max="0.95" step="0.01" value="0.35">
+    <small class="rec">Khuyên dùng 0.35. Thấp hơn thì người không mũ dễ bị hiện thành có mũ; cao hơn 0.45 thì nhiều mũ không được đánh dấu.</small></label>
   <label>Không đội mũ <output id="sBareV"></output><input id="sBare" type="range" min="0.05" max="0.95" step="0.01" value="0.35">
-    <small class="rec">Khuyên dùng 0.35: bắt được 83% người không mũ. 0.40-0.45: ít báo nhầm hơn nhưng chỉ bắt 76-79%. Dưới 0.30: báo nhầm tăng nhanh.</small></label>
-  <label>Không mũ khi không thấy người trên xe <output id="sNoPersonV"></output><input id="sNoPerson" type="range" min="0.05" max="0.95" step="0.01" value="0.45">
-    <small class="rec">Khuyên dùng 0.45. Chặn báo nhầm từ xe đỗ bên đường và người đi bộ đứng cạnh xe.</small></label>
+    <small class="rec">Khuyên dùng 0.35: bắt được 82-83% người không mũ. 0.40-0.45: ít báo nhầm hơn nhưng chỉ bắt 72-79%. Dưới 0.30: báo nhầm tăng nhanh.</small></label>
   <div class="row"><small id="setNote"></small><button id="setReset">Về mức khuyên dùng</button></div>
 </div>
 <div id="err"></div>
@@ -288,7 +277,7 @@
 
 <aside id="log" class="hidden" aria-label="Danh sách vi phạm">
   <div class="log-head">Vi phạm <span class="num" id="logCount">0</span><small id="logHint">mới nhất ở trên</small></div>
-  <p class="empty" id="logEmpty">Người không đội mũ hiện ở đây kèm ảnh chụp. Nếu sau đó thấy người này có đội mũ, ảnh tự xoá; bấm × để xoá ảnh chụp sai.</p>
+  <p class="empty" id="logEmpty">Người không đội mũ hiện ở đây kèm ảnh chụp, ảnh tự xoá sau 10 giây. Bấm × để xoá ngay.</p>
   <ul id="logList"></ul>
 </aside>
 
@@ -300,6 +289,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.webgpu.min.js"></script>
-<script src="app.js?v=v11k"></script>
+<script src="app.js?v=v12a"></script>
 </body>
 </html>

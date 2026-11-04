@@ -1,11 +1,13 @@
 const CLASSES = ["motorbike", "person", "helmet", "no_helmet"];
-const COLORS = ["#f2f4f6", "#4ea1ff", "#2fb36d", "#ff8a3d"];
+const COLORS = ["#f2f4f6", "#4ea1ff", "#2fb36d", "#e5383b"];  // bare heads always red
 const STATUS_COLORS = { violation: "#e5383b", ok: "#2fb36d", unknown: "#c3cad2" };
 const FONT = "'Barlow Semi Condensed', Barlow, -apple-system, system-ui, sans-serif";
 // motorbike, person as v8; helmet 0.25 and no_helmet 0.35 from the Hanoi val frames (never trained on): bare 0.35-0.44 give the
 // same violation F1 (0.76-0.77, 95 % CI 0.69-0.84), 0.35 catches 83 % of bare heads instead of 76 %; the helmet threshold
 // changes nothing between 0.10 and 0.25 (0.7 % of "OK" heads are bare), 0.25 shows fewer weak helmet boxes
-const DEFAULTS = { conf: [0.55, 0.5, 0.25, 0.35], bareNoPerson: 0.45 };
+// helmet 0.35 since the user's sunset Hanoi video (src/v12_thr_video.py): bare heads shown as helmet 5 -> 3 of 102,
+// no bare head lost; bare 0.35 confirmed there (82 % caught, 5 false alarms; 0.20 catches 90 % with 11)
+const DEFAULTS = { conf: [0.55, 0.5, 0.35, 0.35], bareNoPerson: 0.45 };
 const CONF = DEFAULTS.conf.slice();  // changed from the Settings panel, kept in this browser
 const INFER_BARE = false;  // the model marks bare heads itself; guessing from a missing head box lowered F1 on both test sets
 const CAND_CONF = 0.15;  // candidate floor; lowered below a class threshold set lower in Settings
@@ -44,6 +46,7 @@ const stage = { prep: 0, run: 0 }, shown = { prep: 0, run: 0 }, runCost = {};
 const tracker = { tracks: [], nextId: 1, violators: new Set(), number: new Map(), recent: [], logged: 0, cards: new Map() };
 const tileCache = { next: 0, dets: [], ts: [], key: "" };
 const LOG_MAX = 40;
+const SNAP_MS = 10000;   // a violation snapshot stays 10 s
 
 // one session.run at a time: a new source can start a loop while the old one is still waiting on the GPU
 let runQueue = Promise.resolve();
@@ -381,28 +384,18 @@ function shownDets(dets) {
 }
 
 function drawResults({ dets, bikes }) {
+  // motorbikes (corner brackets in their status colour) and people (thin blue) are drawn as before; heads: helmet green,
+  // no helmet always red; a logged rider's bare head gets its violation number
   const cssW = Math.max(1, view.getBoundingClientRect().width);
-  // t: tag size; phones get small tags and only the violation tag, so the boxes stay visible
   const phone = cssW < 700, s = Math.max(1, view.width / cssW), t = s * (phone ? 0.6 : Math.min(1, Math.max(0.7, cssW / 800)));
   const shownList = shownDets(dets); placed = [];
   for (const d of shownList) if (d[5] === 1) box(d, COLORS[1], 1.5 * s, 3 * s, 0.7);
+  for (const b of bikes) brackets(b.drawBox || b.box, STATUS_COLORS[b.shown || b.status], s);
+  for (const d of shownList) if (d[5] >= 2) box(d, COLORS[d[5]], 2.5 * s, 3 * s);
   for (const b of bikes) {
-    const st = b.shown || b.status;
-    brackets(b.drawBox || b.box, STATUS_COLORS[st], s);
-    if (st === "violation") for (const r of b.riders) if (r.person && r.status === "no_helmet") box(r.person, STATUS_COLORS.violation, 2.5 * s, 3 * s);
-  }
-  // tags only where they help: every violation; helmet-OK only on wide screens and big motorbikes
-  for (const b of bikes) {
-    const bb = b.drawBox || b.box, st = b.shown || b.status;
-    let top = bb[1];
-    for (const r of b.riders) for (const q of [r.person, r.head]) if (q) top = Math.min(top, q[1]);
-    if (st === "violation") label(phone ? "Không mũ" : reasons(b), bb[0], top - 4 * t, STATUS_COLORS.violation, t, "#fff", `#${tracker.number.get(b.id) || ""}`);
-    else if (!phone && st === "ok" && bb[2] - bb[0] > 0.12 * view.width) label("Có mũ", bb[0], top - 4 * t, STATUS_COLORS.ok, t * 0.85, "#fff", "", true);
-  }
-  for (const d of shownList) {
-    if (d[5] < 2) continue;
-    box(d, COLORS[d[5]], 2.5 * s, 3 * s);
-    if (d[5] === 3 && !phone) label(`Không mũ ${Math.round(100 * d[4])}%`, d[0], d[1] - 3 * s, COLORS[3], t * 0.75, "#2a0d05", "", true);
+    if ((b.shown || b.status) !== "violation") continue;
+    const n = tracker.number.get(b.id);
+    for (const r of b.riders) if (r.head && r.status === "no_helmet") label("Không mũ", r.head[0], r.head[1] - 3 * s, COLORS[3], t, "#fff", n ? `#${n}` : "");
   }
 }
 
@@ -429,6 +422,7 @@ function logViolation(b, id) {
   li.querySelector("img").src = c.toDataURL("image/jpeg", 0.85);
   li.querySelector(".del").onclick = () => removeCard(id);   // the user can also take a wrong snapshot off by hand
   li.dataset.n = id;
+  setTimeout(() => removeCard(id), SNAP_MS);
   const list = $("logList"); list.prepend(li); tracker.cards.set(id, li);
   while (list.children.length > LOG_MAX) { tracker.cards.delete(+list.lastChild.dataset.n); list.lastChild.remove(); }
   logChanged();
@@ -455,8 +449,8 @@ function updateHud() {
   $("dps").textContent = still ? "1" : rate(inferTimes).toFixed(0);
   $("msize").textContent = `${LEVELS[level].name} px (chuẩn bị ${shown.prep.toFixed(0)} ms, GPU ${shown.run.toFixed(0)} ms)`;
   const { dets, bikes } = latest;
-  $("nb").textContent = dets.filter((d) => d[5] === 0).length; $("np").textContent = dets.filter((d) => d[5] === 1).length;
   const heads = shownDets(dets);
+  $("nb").textContent = dets.filter((d) => d[5] === 0).length; $("np").textContent = dets.filter((d) => d[5] === 1).length;
   $("nh").textContent = heads.filter((d) => d[5] === 2).length; $("nn").textContent = heads.filter((d) => d[5] === 3).length;
   const total = tracker.cards.size; $("uv").textContent = total;
   const st = bikes.map((b) => b.shown || b.status), nv = st.filter((x) => x === "violation").length, nok = st.filter((x) => x === "ok").length;
@@ -561,22 +555,20 @@ async function openUrl(url, isImage) {
 }
 
 // Settings: per-class confidence thresholds, kept in this browser only
-const SET_KEY = "helmetCheck.settings.v1";
-const SLIDERS = [["sMoto", 0], ["sPerson", 1], ["sHelmet", 2], ["sBare", 3]];
+const SET_KEY = "helmetCheck.settings.v2";
+const SLIDERS = [["sMoto", 0], ["sPerson", 1], ["sHelmet", 2], ["sBare", 3]];   // the riderless bar stays at its default
 function applySettings(save) {
   for (const [id, k] of SLIDERS) { CONF[k] = +$(id).value; $(id + "V").textContent = CONF[k].toFixed(2); }
-  BARE_NO_PERSON = +$("sNoPerson").value; $("sNoPersonV").textContent = BARE_NO_PERSON.toFixed(2);
-  const changed = CONF.some((v, k) => v !== DEFAULTS.conf[k]) || BARE_NO_PERSON !== DEFAULTS.bareNoPerson;
+  const changed = CONF.some((v, k) => v !== DEFAULTS.conf[k]);
   $("setNote").textContent = changed ? "Đang dùng giá trị tự chỉnh (khác mức đã kiểm định)" : "Đang dùng mức khuyên dùng";
   if (save) try { localStorage.setItem(SET_KEY, JSON.stringify({ conf: CONF, bareNoPerson: BARE_NO_PERSON })); } catch (e) {}
 }
 function setSliders(v) {
   for (const [id, k] of SLIDERS) $(id).value = v.conf[k];
-  $("sNoPerson").value = v.bareNoPerson;
 }
 try { const v = JSON.parse(localStorage.getItem(SET_KEY)); if (v && v.conf && v.conf.length === 4) setSliders(v); } catch (e) {}
 applySettings(false);
-for (const id of [...SLIDERS.map((x) => x[0]), "sNoPerson"]) $(id).oninput = () => applySettings(true);
+for (const id of SLIDERS.map((x) => x[0])) $(id).oninput = () => applySettings(true);
 $("setReset").onclick = () => { setSliders(DEFAULTS); applySettings(true); };
 $("setBtn").onclick = () => {
   const open = $("settings").classList.toggle("hidden") === false; $("setBtn").setAttribute("aria-expanded", open);
