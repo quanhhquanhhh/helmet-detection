@@ -14,6 +14,13 @@ Open the page on a phone, press **Start camera** and point it at the street. The
   a no_helmet box means *no helmet*; a rider with neither is *unclear*. Motorbikes are tracked between frames to count unique violators.
 * Fully automatic: multi-scale inference (960 px for small, distant objects + 320 px for large, close objects), per-class thresholds chosen on held-out Hanoi video frames, speed adaptation to the phone, and per-motorbike tracking that smooths the helmet status over several frames.
 
+* Vietnamese traffic rules checked (Law 36/2024/QH15 on Road Traffic Order and Safety, Art. 33): the rider and every
+  passenger of a motorbike must wear a helmet; a motorbike carries one passenger, two only with a child under 12 or a
+  sick, elderly or disabled person, so 3 people are marked "check" and 4 or more are flagged. Pedestrians and parked
+  bikes are not checked. The violation log shows the fines of Decree 168/2024/ND-CP as published.
+* Settings (slider button): confidence threshold per class, kept in the browser; Reset returns to the values chosen on
+  held-out Hanoi video frames.
+
 HELMET dataset: H. Lin, J. D. Deng, D. Albers, F. W. Siebert, "Helmet Use Detection of Tracked Motorcycles Using CNN-Based
 Multi-Task Learning", IEEE Access, 2020; data by F. W. Siebert and H. Lin, https://osf.io/4pwj8, licensed CC BY 4.0.
 Only the trained model is published here; no dataset images are included.

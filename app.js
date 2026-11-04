@@ -5,11 +5,12 @@ const FONT = "'Barlow Semi Condensed', Barlow, -apple-system, system-ui, sans-se
 // motorbike, person as v8; helmet 0.25 and no_helmet 0.35 from the Hanoi val frames (never trained on): bare 0.35-0.44 give the
 // same violation F1 (0.76-0.77, 95 % CI 0.69-0.84), 0.35 catches 83 % of bare heads instead of 76 %; the helmet threshold
 // changes nothing between 0.10 and 0.25 (0.7 % of "OK" heads are bare), 0.25 shows fewer weak helmet boxes
-const CONF = [0.55, 0.5, 0.25, 0.35];
+const DEFAULTS = { conf: [0.55, 0.5, 0.25, 0.35], bareNoPerson: 0.45 };
+const CONF = DEFAULTS.conf.slice();  // changed from the Settings panel, kept in this browser
 const INFER_BARE = false;  // the model marks bare heads itself; guessing from a missing head box lowered F1 on both test sets
-const CAND_CONF = 0.15;  // must not exceed the lowest class threshold
+const CAND_CONF = 0.15;  // candidate floor; lowered below a class threshold set lower in Settings
 const HELMET_ON_HEAD = 0.3;
-const BARE_NO_PERSON = 0.45;  // bare head on a bike without a detected rider: Hanoi test 16 such violations -> 5 (mostly pedestrians, parked bikes), Hanoi val 4 -> 1
+let BARE_NO_PERSON = DEFAULTS.bareNoPerson;  // bare head on a bike without a detected rider: Hanoi test 16 such violations -> 5 (mostly pedestrians, parked bikes), Hanoi val 4 -> 1
 const TARGET_MS = 62;
 const IOU_NMS = 0.6;
 const RIDER_MIN_PX = 80;
@@ -115,11 +116,12 @@ function iou(a, b) {
 }
 
 function decode(out, meta, w, h, minSide) {
+  const cand = Math.min(CAND_CONF, ...CONF);
   const data = out.data, nc = CLASSES.length, N = out.dims[2], dets = [];
   for (let i = 0; i < N; i++) {
     let best = 0, cls = 0;
     for (let c = 0; c < nc; c++) { const s = data[(4 + c) * N + i]; if (s > best) { best = s; cls = c; } }
-    if (best < CAND_CONF) continue;
+    if (best < cand) continue;
     const cx = data[i], cy = data[N + i], bw = data[2 * N + i], bh = data[3 * N + i];
     const x1 = Math.min(Math.max((cx - bw / 2 - meta.px) / meta.r, 0), w), y1 = Math.min(Math.max((cy - bh / 2 - meta.py) / meta.r, 0), h);
     const x2 = Math.min(Math.max((cx + bw / 2 - meta.px) / meta.r, 0), w), y2 = Math.min(Math.max((cy + bh / 2 - meta.py) / meta.r, 0), h);
@@ -265,6 +267,7 @@ function composeRiders(dets) {
   for (const b of out) {
     const st = b.riders.map((r) => r.status);
     b.status = st.includes("no_helmet") ? "violation" : (st.length && st.every((s) => s === "helmet") ? "ok" : "unknown");
+    b.load = b.riders.length;   // people on the bike: rider boxes + bare/helmet heads with no rider box
   }
   return out;
 }
@@ -310,6 +313,13 @@ function track(bikes, isVideo) {
     else if (recent.includes("violation") && nv >= no) b.shown = "violation";
     else if (no >= 2 || (no >= 1 && nv === 0)) b.shown = "ok";
     else b.shown = "unknown";
+    // Law 36/2024/QH15 Art. 33(1): a motorbike carries one passenger, two only for a child under 12, a sick, elderly or
+    // disabled person or an escorted offender. 4+ people is always a violation; 3 people is shown as "check" only.
+    best.loads = (best.loads || []).concat(b.load).slice(-5);
+    const L = best.loads.slice().sort((a, c) => a - c), load = isVideo ? (L.length >= 3 ? L[L.length >> 1] : 0) : b.load;
+    b.overload = load >= 4 ? 2 : load === 3 ? 1 : 0;
+    b.helmetViolation = b.shown === "violation";
+    if (b.overload === 2) b.shown = "violation";
     b.id = best.id; b.drawBox = isVideo ? best.smooth : b.box;
     if (b.shown === "violation" && !tracker.violators.has(best.id)) {
       const same = recentViolation(b.box);
@@ -385,7 +395,8 @@ function drawResults({ dets, bikes }) {
     const bb = b.drawBox || b.box, st = b.shown || b.status;
     let top = bb[1];
     for (const r of b.riders) for (const q of [r.person, r.head]) if (q) top = Math.min(top, q[1]);
-    if (st === "violation") label("No helmet", bb[0], top - 4 * t, STATUS_COLORS.violation, t, "#fff", `#${tracker.number.get(b.id) || ""}`);
+    if (st === "violation") label(reasons(b).join(" + "), bb[0], top - 4 * t, STATUS_COLORS.violation, t, "#fff", `#${tracker.number.get(b.id) || ""}`);
+    else if (b.overload === 1) label("3 people: check", bb[0], top - 4 * t, CHECK_COLOR, t * 0.85, "#2a1a00", "", true);
     else if (st === "ok" && bb[2] - bb[0] > 0.12 * view.width) label("Helmet", bb[0], top - 4 * t, STATUS_COLORS.ok, t * 0.85, "#fff", "", true);
   }
   for (const d of shownList) {
@@ -397,6 +408,24 @@ function drawResults({ dets, bikes }) {
 
 function clock(t) { const m = Math.floor(t / 60), x = Math.floor(t % 60); return `${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}`; }
 
+const CHECK_COLOR = "#f5a524";
+
+// what the motorbike is flagged for, in the words of Law 36/2024/QH15 Art. 33
+function reasons(b) {
+  const out = [], n = b.riders.filter((r) => r.status === "no_helmet").length;
+  if (b.helmetViolation) out.push(n > 1 ? `${n} without helmet` : "No helmet");
+  if (b.overload === 2) out.push(`${b.load} people on one bike`);
+  return out.length ? out : ["No helmet"];
+}
+
+// fines of Decree 168/2024/ND-CP as published (each person without a helmet is fined separately)
+function fines(b) {
+  const out = [];
+  if (b.helmetViolation) out.push("No helmet: 400,000-600,000 VND per person");
+  if (b.overload === 2) out.push("2+ passengers: 600,000-800,000 VND");
+  return out.join("<br>");
+}
+
 // snapshot of the motorbike and its riders from the frame the decision was made on
 function logViolation(b, id) {
   const u = b.box.slice(0, 4);
@@ -406,9 +435,8 @@ function logViolation(b, id) {
   const g = c.getContext("2d"); g.fillStyle = "#222"; g.fillRect(0, 0, 192, 192);
   g.drawImage(frameC, cx - side / 2, cy - side / 2, side, side, 0, 0, 192, 192);
   const when = still ? "photo" : stream ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : clock(video.currentTime);
-  const n = b.riders.filter((r) => r.status === "no_helmet").length;
   const li = document.createElement("li"); li.className = "card new";
-  li.innerHTML = `<img alt="Motorbike #${id}"><div><b>#${id}</b><span>${when}</span><em>${n > 1 ? n + " riders bare-headed" : "No helmet"}</em></div>`;
+  li.innerHTML = `<img alt="Motorbike #${id}"><div><b>#${id}</b><span>${when}</span><em>${reasons(b).join(" + ")}</em><small>${fines(b)}</small></div>`;
   li.querySelector("img").src = c.toDataURL("image/jpeg", 0.85);
   const list = $("logList"); list.prepend(li);
   while (list.children.length > LOG_MAX) list.lastChild.remove();
@@ -531,6 +559,28 @@ async function openUrl(url, isImage) {
   }
 }
 
+// Settings: per-class confidence thresholds, kept in this browser only
+const SET_KEY = "helmetCheck.settings.v1";
+const SLIDERS = [["sMoto", 0], ["sPerson", 1], ["sHelmet", 2], ["sBare", 3]];
+function applySettings(save) {
+  for (const [id, k] of SLIDERS) { CONF[k] = +$(id).value; $(id + "V").textContent = CONF[k].toFixed(2); }
+  BARE_NO_PERSON = +$("sNoPerson").value; $("sNoPersonV").textContent = BARE_NO_PERSON.toFixed(2);
+  const changed = CONF.some((v, k) => v !== DEFAULTS.conf[k]) || BARE_NO_PERSON !== DEFAULTS.bareNoPerson;
+  $("setNote").textContent = changed ? "Custom values (not the tested defaults)" : "Defaults chosen on held-out Hanoi video frames";
+  if (save) try { localStorage.setItem(SET_KEY, JSON.stringify({ conf: CONF, bareNoPerson: BARE_NO_PERSON })); } catch (e) {}
+}
+function setSliders(v) {
+  for (const [id, k] of SLIDERS) $(id).value = v.conf[k];
+  $("sNoPerson").value = v.bareNoPerson;
+}
+try { const v = JSON.parse(localStorage.getItem(SET_KEY)); if (v && v.conf && v.conf.length === 4) setSliders(v); } catch (e) {}
+applySettings(false);
+for (const id of [...SLIDERS.map((x) => x[0]), "sNoPerson"]) $(id).oninput = () => applySettings(true);
+$("setReset").onclick = () => { setSliders(DEFAULTS); applySettings(true); };
+$("setBtn").onclick = () => {
+  const open = $("settings").classList.toggle("hidden") === false; $("setBtn").setAttribute("aria-expanded", open);
+};
+
 $("startBtn").onclick = () => startCamera().catch((e) => {
   $("loadmsg").textContent = `The camera did not start (${e.message}). Allow camera access for this site in Settings, then try again.`;
 });
@@ -540,7 +590,7 @@ $("speed").onclick = () => {
 };
 $("stopBtn").onclick = () => {
   stopSource(); $("status").classList.remove("hidden");
-  for (const id of ["hud", "controls", "log", "details"]) $(id).classList.add("hidden");
+  for (const id of ["hud", "controls", "log", "details", "settings"]) $(id).classList.add("hidden");
 };
 $("file").onchange = (e) => {
   const f = e.target.files[0]; if (!f) return;

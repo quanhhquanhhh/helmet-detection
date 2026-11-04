@@ -104,6 +104,16 @@
   #details { position: fixed; top: calc(var(--safe-t) + 128px); right: calc(var(--side) + 12px); border-radius: 14px; padding: 12px 14px; font-size: 13px; color: var(--sub);
     display: grid; grid-template-columns: auto auto; gap: 4px 16px; max-width: calc(100% - 24px); }
   #details b { color: var(--text); font-weight: 600; font-family: var(--cond); font-variant-numeric: tabular-nums; text-align: right; }
+  #settings { position: fixed; bottom: calc(var(--dock) + var(--safe-b) + 12px); left: 12px; right: calc(var(--side) + 12px); max-width: 380px;
+    border-radius: 14px; padding: 14px 16px; font-size: 13px; color: var(--sub); z-index: 5; max-height: 70vh; overflow-y: auto; }
+  #settings h2 { margin: 0 0 8px; font-size: 15px; color: var(--text); font-family: var(--cond); font-weight: 600; }
+  #settings label { display: grid; grid-template-columns: 1fr 44px; align-items: center; gap: 2px 8px; margin: 6px 0; }
+  #settings input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--green); }
+  #settings output { color: var(--text); font-family: var(--cond); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+  #settings .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; }
+  #settings button { border: 1px solid var(--glass-line); background: transparent; color: var(--text); border-radius: 10px; padding: 6px 12px; font: inherit; }
+  #settings ul { margin: 6px 0 0; padding-left: 18px; line-height: 1.4; }
+  #log .card small { display: block; color: var(--sub); font-size: 11px; line-height: 1.3; margin-top: 2px; }
   #err { position: fixed; top: calc(var(--safe-t) + 92px); left: 12px; color: #ff9b9d; font-size: 13px; }
 
   #legend { flex-basis: 100%; border-radius: 12px; padding: 7px 12px; display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 13px; color: var(--sub); }
@@ -255,6 +265,22 @@
   <span>Screen refresh</span><b><span id="fps">0</span> fps</b>
   <span>Riders flagged in total</span><b id="uv">0</b>
 </div>
+<div id="settings" class="glass hidden" role="dialog" aria-label="Settings">
+  <h2>Confidence thresholds</h2>
+  <label>Motorbike <output id="sMotoV"></output><input id="sMoto" type="range" min="0.05" max="0.95" step="0.01" value="0.55"></label>
+  <label>Person <output id="sPersonV"></output><input id="sPerson" type="range" min="0.05" max="0.95" step="0.01" value="0.5"></label>
+  <label>Helmet <output id="sHelmetV"></output><input id="sHelmet" type="range" min="0.05" max="0.95" step="0.01" value="0.25"></label>
+  <label>Bare head (no helmet) <output id="sBareV"></output><input id="sBare" type="range" min="0.05" max="0.95" step="0.01" value="0.35"></label>
+  <label>Bare head on a bike with no person box <output id="sNoPersonV"></output><input id="sNoPerson" type="range" min="0.05" max="0.95" step="0.01" value="0.45"></label>
+  <p>Lower a value to catch more, raise it for fewer false alarms.</p>
+  <div class="row"><small id="setNote"></small><button id="setReset">Reset</button></div>
+  <h2 style="margin-top:12px">Traffic rules checked</h2>
+  <ul>
+    <li>Rider and every passenger of a motorbike must wear a helmet (Law 36/2024/QH15, Art. 33.2).</li>
+    <li>One passenger; two only with a child under 12, a sick, elderly or disabled person (Art. 33.1). 3 people on a bike is marked "check", 4 or more is a violation.</li>
+    <li>Pedestrians and parked bikes are not checked.</li>
+  </ul>
+</div>
 <div id="err"></div>
 
 
@@ -267,10 +293,11 @@
 <div id="controls" class="hidden">
   <label class="round glass btn" aria-label="Check a photo or video" for="file"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg></label>
   <button id="stopBtn" class="stop" aria-label="Stop"><i></i></button>
+  <button id="setBtn" class="round glass" aria-label="Settings" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></button>
   <button id="flipBtn" class="round glass" aria-label="Switch camera"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 21v-5h-5"/></svg></button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.webgpu.min.js"></script>
-<script src="app.js?v=v11d"></script>
+<script src="app.js?v=v11e"></script>
 </body>
 </html>
