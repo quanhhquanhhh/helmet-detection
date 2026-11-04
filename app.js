@@ -2,7 +2,7 @@ const CLASSES = ["motorbike", "person", "helmet", "no_helmet"];
 const COLORS = ["#f2f4f6", "#4ea1ff", "#2fb36d", "#ff8a3d"];
 const STATUS_COLORS = { violation: "#e5383b", ok: "#2fb36d", unknown: "#c3cad2" };
 const FONT = "'Barlow Semi Condensed', Barlow, -apple-system, system-ui, sans-serif";
-const CONF = [0.55, 0.5, 0.10, 0.44];  // motorbike, person as v8; helmet and no_helmet chosen on the Hanoi val frames (src/thr_hanoi_val.py)
+const CONF = [0.55, 0.5, 0.10, 0.35];  // motorbike, person as v8; helmet from the Hanoi val frames, no_helmet 0.35 (recall 0.83 on Hanoi val, src/thr_hanoi_val.py)
 const INFER_BARE = false;  // the model marks bare heads itself; guessing from a missing head box lowered F1 on both test sets
 const CAND_CONF = 0.10;  // must not exceed the lowest class threshold
 const HELMET_ON_HEAD = 0.3;
@@ -291,7 +291,9 @@ function track(bikes, isVideo) {
     const nv = best.hist.filter((s) => s === "violation").length, no = best.hist.filter((s) => s === "ok").length;
     const recent = best.hist.slice(-3);
     if (!isVideo) b.shown = b.status;
-    else if (best.hist.length >= 4 && nv >= Math.ceil(0.6 * best.hist.length) && no <= 1 && !recent.includes("ok")) b.shown = "violation";
+    // violation as soon as one of the last 3 frames saw a bare head and bare calls are not outnumbered by helmet calls;
+    // the old rule (60 % of 8 frames, at most one helmet call) halved the violators caught on the Hanoi video windows
+    else if (recent.includes("violation") && nv >= no) b.shown = "violation";
     else if (no >= 2 || (no >= 1 && nv === 0)) b.shown = "ok";
     else b.shown = "unknown";
     b.id = best.id; b.drawBox = isVideo ? best.smooth : b.box;
