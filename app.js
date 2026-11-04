@@ -43,7 +43,6 @@ let renderTimes = [], inferTimes = [];
 const stage = { prep: 0, run: 0 }, shown = { prep: 0, run: 0 }, runCost = {};
 const tracker = { tracks: [], nextId: 1, violators: new Set(), number: new Map(), recent: [], logged: 0 };
 const tileCache = { next: 0, dets: [], ts: [], key: "" };
-const LOG_MAX = 40;
 
 // one session.run at a time: a new source can start a loop while the old one is still waiting on the GPU
 let runQueue = Promise.resolve();
@@ -316,7 +315,7 @@ function track(bikes, isVideo) {
     if (b.shown === "violation" && !tracker.violators.has(best.id)) {
       const same = recentViolation(b.box);
       if (same) tracker.number.set(best.id, same.n);
-      else { tracker.logged++; tracker.number.set(best.id, tracker.logged); logViolation(b, tracker.logged); }
+      else { tracker.logged++; tracker.number.set(best.id, tracker.logged); }
       tracker.recent.push({ box: b.box.slice(0, 4), t: performance.now(), n: tracker.number.get(best.id), track: best });
       tracker.violators.add(best.id);
     }
@@ -406,28 +405,6 @@ function reasons(b) {
   return n > 1 ? `${n} người không mũ` : "Không đội mũ";
 }
 
-// fine of Decree 168/2024/ND-CP as published (each person without a helmet is fined separately)
-const FINE = "Phạt 400.000-600.000 đ mỗi người không đội mũ";
-
-// snapshot of the motorbike and its riders from the frame the decision was made on
-function logViolation(b, id) {
-  const u = b.box.slice(0, 4);
-  for (const r of b.riders) if (r.person) { u[0] = Math.min(u[0], r.person[0]); u[1] = Math.min(u[1], r.person[1]); u[2] = Math.max(u[2], r.person[2]); u[3] = Math.max(u[3], r.person[3]); }
-  const side = Math.max(u[2] - u[0], u[3] - u[1]) * 1.15, cx = (u[0] + u[2]) / 2, cy = (u[1] + u[3]) / 2;
-  const c = document.createElement("canvas"); c.width = c.height = 192;
-  const g = c.getContext("2d"); g.fillStyle = "#222"; g.fillRect(0, 0, 192, 192);
-  g.drawImage(frameC, cx - side / 2, cy - side / 2, side, side, 0, 0, 192, 192);
-  const when = still ? "ảnh" : stream ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : clock(video.currentTime);
-  const li = document.createElement("li"); li.className = "card new";
-  li.innerHTML = `<img alt="Xe máy #${id}"><div><b>#${id}</b><span>${when}</span><em>${reasons(b)}</em><small>${FINE}</small></div>`;
-  li.querySelector("img").src = c.toDataURL("image/jpeg", 0.85);
-  const list = $("logList"); list.prepend(li);
-  while (list.children.length > LOG_MAX) list.lastChild.remove();
-  $("logEmpty").classList.add("hidden"); $("logCount").textContent = tracker.logged;
-}
-
-function clearLog() { $("logList").replaceChildren(); $("logEmpty").classList.remove("hidden"); $("logCount").textContent = "0"; }
-
 function rate(ts) { return ts.length > 1 ? 1000 * (ts.length - 1) / (ts[ts.length - 1] - ts[0]) : 0; }
 
 let flagged = 0, lastFlash = 0;
@@ -504,14 +481,13 @@ async function processStill() {
 
 function showUi() {
   flagged = 0; $("status").classList.add("hidden");
-  for (const id of ["hud", "controls", "log"]) $(id).classList.remove("hidden");
+  for (const id of ["hud", "controls"]) $(id).classList.remove("hidden");
 }
 
 function resetState() {
   level = benchLevel; settle = 3; emaMs = 0; slowCount = fastCount = 0;
   tileCache.dets = []; tileCache.ts = []; tileCache.key = ""; tileCache.next = 0;
   tracker.tracks = []; tracker.nextId = 1; tracker.violators.clear(); tracker.number.clear(); tracker.recent = []; tracker.logged = 0; latest = { dets: [], bikes: [] }; renderTimes = []; inferTimes = [];
-  clearLog();
 }
 
 async function startCamera() {
@@ -573,7 +549,7 @@ $("speed").onclick = () => {
 };
 $("stopBtn").onclick = () => {
   stopSource(); $("status").classList.remove("hidden");
-  for (const id of ["hud", "controls", "log", "details", "settings"]) $(id).classList.add("hidden");
+  for (const id of ["hud", "controls", "details", "settings"]) $(id).classList.add("hidden");
 };
 $("file").onchange = (e) => {
   const f = e.target.files[0]; if (!f) return;

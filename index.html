@@ -114,7 +114,6 @@
   #settings button { border: 1px solid var(--glass-line); background: transparent; color: var(--text); border-radius: 10px; padding: 6px 12px; font: inherit; }
   #settings ul { margin: 6px 0 0; padding-left: 18px; line-height: 1.4; }
   #settings .rec { grid-column: 1 / -1; color: var(--sub); font-size: 11.5px; line-height: 1.35; }
-  #log .card small { display: block; color: var(--sub); font-size: 11px; line-height: 1.3; margin-top: 2px; }
   #err { position: fixed; top: calc(var(--safe-t) + 92px); left: 12px; color: #ff9b9d; font-size: 13px; }
 
   #legend { flex-basis: 100%; border-radius: 12px; padding: 7px 12px; display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 13px; color: var(--sub); }
@@ -130,40 +129,14 @@
   .stop i { width: 24px; height: 24px; border-radius: 5px; background: var(--red); }
   .round:active, .stop:active { transform: scale(.94); }
 
-  /* violation log: horizontal strip above the dock on phones, a side column on wide screens */
-  #log { position: fixed; left: 0; right: 0; bottom: calc(var(--dock) + var(--safe-b)); padding: 0 12px; }
-  .log-head { display: flex; align-items: baseline; gap: 8px; margin: 0 2px 6px; font-weight: 600; font-size: 14px; }
-  .log-head .num { font-size: 15px; color: var(--sub); }
-  .log-head small { margin-left: auto; font-weight: 400; font-size: 12px; color: var(--sub); }
-  #logList { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0; padding: 0; list-style: none; }
-  #logList::-webkit-scrollbar { display: none; }
-  .card { flex: none; width: 112px; border-radius: 12px; overflow: hidden; background: var(--glass); border: 1px solid var(--glass-line); }
-  .card img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: #222; }
-  .card div { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 8px 6px; font-size: 12px; color: var(--sub); }
-  .card b { color: var(--text); font-family: var(--cond); font-weight: 600; font-size: 14px; }
-  .card.new { animation: arrive .5s ease-out; }
-  @keyframes arrive { from { transform: translateY(8px); opacity: 0; } }
-  .empty { font-size: 13px; color: var(--sub); padding: 2px 2px 4px; }
-
   @media (min-width: 900px) and (orientation: landscape) {
-    :root { --side: 300px; --dock: 104px; }
-    #log { top: 0; bottom: 0; left: auto; right: 0; width: var(--side); padding: calc(var(--safe-t) + 18px) 16px 16px; background: var(--night); border-left: 1px solid var(--glass-line);
-      display: flex; flex-direction: column; }
-    .log-head { font-size: 16px; margin-bottom: 12px; }
-    #logList { flex-direction: column; overflow-x: hidden; overflow-y: auto; gap: 10px; }
-    .card { width: auto; display: grid; grid-template-columns: 96px 1fr; background: rgba(255,255,255,.04); }
-    .card img { height: 96px; }
-    .card div { flex-direction: column; justify-content: center; align-items: flex-start; gap: 2px; padding: 8px 12px; font-size: 13px; }
-    .card b { font-size: 18px; }
-    .card em { font-style: normal; color: var(--red); font-weight: 600; }
-    .empty { padding: 10px 0; max-width: 26ch; line-height: 1.5; }
+    :root { --dock: 104px; }
     #legend { flex-basis: auto; align-self: stretch; align-items: center; padding: 8px 16px; gap: 4px 18px; }
     #hud { flex-wrap: nowrap; } .spacer { order: 3; } #speed { order: 4; }
     #details { top: calc(var(--safe-t) + 92px); }
   }
-  @media not all and (min-width: 900px) and (orientation: landscape) { .card em { display: none; } }
 
-  @media (prefers-reduced-motion: reduce) { #flash.on, .card.new, .live::before { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { #flash.on, .live::before { animation: none; } }
 </style>
 </head>
 <body class="loading">
@@ -186,7 +159,7 @@
   <div class="intro">
     <div>
       <h1>Phát hiện người đi xe máy không đội mũ bảo hiểm, trực tiếp.</h1>
-      <p class="lede">Hướng camera ra đường. Mỗi xe máy được theo dõi, đầu của từng người trên xe được kiểm tra, người không đội mũ được ghi lại kèm ảnh chụp.</p>
+      <p class="lede">Hướng camera ra đường. Mỗi xe máy được theo dõi, đầu của từng người trên xe được kiểm tra, người không đội mũ được đánh dấu đỏ.</p>
       <ul class="facts">
         <li><b>4</b><span>loại đối tượng nhận diện</span></li>
         <li><b>10 MB</b><span>mô hình YOLO26n</span></li>
@@ -237,7 +210,7 @@
           <text x="70" y="57" font-size="11" fill="#9aa6b2">Đã ghi 12 trường hợp</text>
         </g>
       </svg>
-      <figcaption>Bạn sẽ thấy: xe máy vi phạm có khung đỏ, đầu không mũ có khung cam, và người đó được thêm vào nhật ký vi phạm.</figcaption>
+      <figcaption>Bạn sẽ thấy: xe máy vi phạm có khung đỏ, đầu không mũ có khung cam.</figcaption>
     </figure>
   </div>
 </main>
@@ -284,11 +257,6 @@
 <div id="err"></div>
 
 
-<aside id="log" class="hidden" aria-label="Danh sách vi phạm">
-  <div class="log-head">Vi phạm <span class="num" id="logCount">0</span><small id="logHint">mới nhất ở trên</small></div>
-  <p class="empty" id="logEmpty">Người không đội mũ sẽ hiện ở đây kèm ảnh chụp và thời điểm phát hiện.</p>
-  <ul id="logList"></ul>
-</aside>
 
 <div id="controls" class="hidden">
   <label class="round glass btn" aria-label="Kiểm tra ảnh hoặc video" for="file"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg></label>
@@ -298,6 +266,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.webgpu.min.js"></script>
-<script src="app.js?v=v11i"></script>
+<script src="app.js?v=v11j"></script>
 </body>
 </html>
