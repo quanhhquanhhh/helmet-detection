@@ -15,9 +15,7 @@ Open the page on a phone, press **Start camera** and point it at the street. The
 * Fully automatic: multi-scale inference (960 px for small, distant objects + 320 px for large, close objects), per-class thresholds chosen on held-out Hanoi video frames, speed adaptation to the phone, and per-motorbike tracking that smooths the helmet status over several frames.
 
 * Vietnamese traffic rules checked (Law 36/2024/QH15 on Road Traffic Order and Safety, Art. 33): the rider and every
-  passenger of a motorbike must wear a helmet; a motorbike carries one passenger, two only with a child under 12 or a
-  sick, elderly or disabled person, so 3 people are marked "check" and 4 or more are flagged. Pedestrians and parked
-  bikes are not checked. The violation log shows the fines of Decree 168/2024/ND-CP as published.
+  passenger of a motorbike must wear a helmet. Pedestrians, bicycles and parked bikes are not checked. The violation log shows the fines of Decree 168/2024/ND-CP as published.
 * Settings (slider button): confidence threshold per class, kept in the browser; Reset returns to the values chosen on
   held-out Hanoi video frames.
 

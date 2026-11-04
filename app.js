@@ -267,7 +267,6 @@ function composeRiders(dets) {
   for (const b of out) {
     const st = b.riders.map((r) => r.status);
     b.status = st.includes("no_helmet") ? "violation" : (st.length && st.every((s) => s === "helmet") ? "ok" : "unknown");
-    b.load = b.riders.length;   // people on the bike: rider boxes + bare/helmet heads with no rider box
   }
   return out;
 }
@@ -313,13 +312,6 @@ function track(bikes, isVideo) {
     else if (recent.includes("violation") && nv >= no) b.shown = "violation";
     else if (no >= 2 || (no >= 1 && nv === 0)) b.shown = "ok";
     else b.shown = "unknown";
-    // Law 36/2024/QH15 Art. 33(1): a motorbike carries one passenger, two only for a child under 12, a sick, elderly or
-    // disabled person or an escorted offender. 4+ people is always a violation; 3 people is shown as "check" only.
-    best.loads = (best.loads || []).concat(b.load).slice(-5);
-    const L = best.loads.slice().sort((a, c) => a - c), load = isVideo ? (L.length >= 3 ? L[L.length >> 1] : 0) : b.load;
-    b.overload = load >= 4 ? 2 : load === 3 ? 1 : 0;
-    b.helmetViolation = b.shown === "violation";
-    if (b.overload === 2) b.shown = "violation";
     b.id = best.id; b.drawBox = isVideo ? best.smooth : b.box;
     if (b.shown === "violation" && !tracker.violators.has(best.id)) {
       const same = recentViolation(b.box);
@@ -382,7 +374,8 @@ function shownDets(dets) {
 
 function drawResults({ dets, bikes }) {
   const cssW = Math.max(1, view.getBoundingClientRect().width);
-  const s = Math.max(1, view.width / cssW), t = s * Math.min(1, Math.max(0.7, cssW / 800));  // t: tag size, smaller on narrow screens
+  // t: tag size; phones get small tags and only the violation tag, so the boxes stay visible
+  const phone = cssW < 700, s = Math.max(1, view.width / cssW), t = s * (phone ? 0.6 : Math.min(1, Math.max(0.7, cssW / 800)));
   const shownList = shownDets(dets); placed = [];
   for (const d of shownList) if (d[5] === 1) box(d, COLORS[1], 1.5 * s, 3 * s, 0.7);
   for (const b of bikes) {
@@ -390,41 +383,31 @@ function drawResults({ dets, bikes }) {
     brackets(b.drawBox || b.box, STATUS_COLORS[st], s);
     if (st === "violation") for (const r of b.riders) if (r.person && r.status === "no_helmet") box(r.person, STATUS_COLORS.violation, 2.5 * s, 3 * s);
   }
-  // tags only where they help: every violation, and helmet-OK only on motorbikes big enough to have room
+  // tags only where they help: every violation; helmet-OK only on wide screens and big motorbikes
   for (const b of bikes) {
     const bb = b.drawBox || b.box, st = b.shown || b.status;
     let top = bb[1];
     for (const r of b.riders) for (const q of [r.person, r.head]) if (q) top = Math.min(top, q[1]);
-    if (st === "violation") label(reasons(b).join(" + "), bb[0], top - 4 * t, STATUS_COLORS.violation, t, "#fff", `#${tracker.number.get(b.id) || ""}`);
-    else if (b.overload === 1) label("3 người: cần xem", bb[0], top - 4 * t, CHECK_COLOR, t * 0.85, "#2a1a00", "", true);
-    else if (st === "ok" && bb[2] - bb[0] > 0.12 * view.width) label("Có mũ", bb[0], top - 4 * t, STATUS_COLORS.ok, t * 0.85, "#fff", "", true);
+    if (st === "violation") label(phone ? "Không mũ" : reasons(b), bb[0], top - 4 * t, STATUS_COLORS.violation, t, "#fff", `#${tracker.number.get(b.id) || ""}`);
+    else if (!phone && st === "ok" && bb[2] - bb[0] > 0.12 * view.width) label("Có mũ", bb[0], top - 4 * t, STATUS_COLORS.ok, t * 0.85, "#fff", "", true);
   }
   for (const d of shownList) {
     if (d[5] < 2) continue;
     box(d, COLORS[d[5]], 2.5 * s, 3 * s);
-    if (d[5] === 3) label(`Không mũ ${Math.round(100 * d[4])}%`, d[0], d[1] - 3 * s, COLORS[3], t * 0.75, "#2a0d05", "", true);
+    if (d[5] === 3 && !phone) label(`Không mũ ${Math.round(100 * d[4])}%`, d[0], d[1] - 3 * s, COLORS[3], t * 0.75, "#2a0d05", "", true);
   }
 }
 
 function clock(t) { const m = Math.floor(t / 60), x = Math.floor(t % 60); return `${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}`; }
 
-const CHECK_COLOR = "#f5a524";
-
-// what the motorbike is flagged for, in the words of Law 36/2024/QH15 Art. 33
+// Law 36/2024/QH15 Art. 33(2): the rider and every passenger must wear a helmet
 function reasons(b) {
-  const out = [], n = b.riders.filter((r) => r.status === "no_helmet").length;
-  if (b.helmetViolation) out.push(n > 1 ? `${n} người không mũ` : "Không đội mũ");
-  if (b.overload === 2) out.push(`Chở ${b.load} người`);
-  return out.length ? out : ["Không đội mũ"];
+  const n = b.riders.filter((r) => r.status === "no_helmet").length;
+  return n > 1 ? `${n} người không mũ` : "Không đội mũ";
 }
 
-// fines of Decree 168/2024/ND-CP as published (each person without a helmet is fined separately)
-function fines(b) {
-  const out = [];
-  if (b.helmetViolation) out.push("Không mũ: phạt 400.000-600.000 đ mỗi người");
-  if (b.overload === 2) out.push("Chở từ 2 người trở lên: phạt 600.000-800.000 đ");
-  return out.join("<br>");
-}
+// fine of Decree 168/2024/ND-CP as published (each person without a helmet is fined separately)
+const FINE = "Phạt 400.000-600.000 đ mỗi người không đội mũ";
 
 // snapshot of the motorbike and its riders from the frame the decision was made on
 function logViolation(b, id) {
@@ -436,7 +419,7 @@ function logViolation(b, id) {
   g.drawImage(frameC, cx - side / 2, cy - side / 2, side, side, 0, 0, 192, 192);
   const when = still ? "ảnh" : stream ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : clock(video.currentTime);
   const li = document.createElement("li"); li.className = "card new";
-  li.innerHTML = `<img alt="Xe máy #${id}"><div><b>#${id}</b><span>${when}</span><em>${reasons(b).join(" + ")}</em><small>${fines(b)}</small></div>`;
+  li.innerHTML = `<img alt="Xe máy #${id}"><div><b>#${id}</b><span>${when}</span><em>${reasons(b)}</em><small>${FINE}</small></div>`;
   li.querySelector("img").src = c.toDataURL("image/jpeg", 0.85);
   const list = $("logList"); list.prepend(li);
   while (list.children.length > LOG_MAX) list.lastChild.remove();
