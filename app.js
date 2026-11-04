@@ -2,11 +2,14 @@ const CLASSES = ["motorbike", "person", "helmet", "no_helmet"];
 const COLORS = ["#f2f4f6", "#4ea1ff", "#2fb36d", "#ff8a3d"];
 const STATUS_COLORS = { violation: "#e5383b", ok: "#2fb36d", unknown: "#c3cad2" };
 const FONT = "'Barlow Semi Condensed', Barlow, -apple-system, system-ui, sans-serif";
-const CONF = [0.55, 0.5, 0.10, 0.35];  // motorbike, person as v8; helmet from the Hanoi val frames, no_helmet 0.35 (recall 0.83 on Hanoi val, src/thr_hanoi_val.py)
+// motorbike, person as v8; helmet 0.25 and no_helmet 0.35 from the Hanoi val frames (never trained on): bare 0.35-0.44 give the
+// same violation F1 (0.76-0.77, 95 % CI 0.69-0.84), 0.35 catches 83 % of bare heads instead of 76 %; the helmet threshold
+// changes nothing between 0.10 and 0.25 (0.7 % of "OK" heads are bare), 0.25 shows fewer weak helmet boxes
+const CONF = [0.55, 0.5, 0.25, 0.35];
 const INFER_BARE = false;  // the model marks bare heads itself; guessing from a missing head box lowered F1 on both test sets
-const CAND_CONF = 0.10;  // must not exceed the lowest class threshold
+const CAND_CONF = 0.15;  // must not exceed the lowest class threshold
 const HELMET_ON_HEAD = 0.3;
-const BARE_NO_PERSON = 0.45;  // bare head on a bike without a detected rider (Hanoi test check: 16 such violations -> 5, real riders kept)
+const BARE_NO_PERSON = 0.45;  // bare head on a bike without a detected rider: Hanoi test 16 such violations -> 5 (mostly pedestrians, parked bikes), Hanoi val 4 -> 1
 const TARGET_MS = 62;
 const IOU_NMS = 0.6;
 const RIDER_MIN_PX = 80;
