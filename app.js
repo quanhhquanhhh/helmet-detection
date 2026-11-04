@@ -18,9 +18,9 @@ const BIG_FRAC = 0.08;
 const SMALL_FRAC = 0.05;
 const TILE = { size: 640, cols: 3, rows: 2, overlap: 0.15, maxZoom: 1.15, maxAgeMs: 500 };
 const LEVELS = [
-  { main: 1280, aux: 320, tile: true, name: "1280 + 320 + tiles" },
+  { main: 1280, aux: 320, tile: true, name: "1280 + 320 + ô nhỏ" },
   { main: 1280, aux: 320, tile: false, name: "1280 + 320" },
-  { main: 960, aux: 320, tile: true, name: "960 + 320 + tiles" },
+  { main: 960, aux: 320, tile: true, name: "960 + 320 + ô nhỏ" },
   { main: 960, aux: 320, tile: false, name: "960 + 320" },
   { main: 640, aux: 320, tile: false, name: "640 + 320" },
   { main: 640, aux: 0, tile: false, name: "640" },
@@ -52,7 +52,7 @@ function runOnce(feeds) { const p = runQueue.then(() => session.run(feeds)); run
 function setProgress(p) { $("bar").style.width = `${Math.round(100 * p)}%`; }
 
 async function loadModel() {
-  $("loadmsg").textContent = "Loading the model…"; setProgress(0.05);
+  $("loadmsg").textContent = "Đang tải mô hình…"; setProgress(0.05);
   ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/";
   ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 2) : 1;
   const parts = [];
@@ -62,7 +62,7 @@ async function loadModel() {
     parts.push(new Uint8Array(await r.arrayBuffer()));
     setProgress(Math.min(0.7, 0.05 + 0.33 * parts.length));
   }
-  if (!parts.length) throw new Error("model files not found");
+  if (!parts.length) throw new Error("không tìm thấy tệp mô hình");
   const bytes = new Uint8Array(parts.reduce((n, x) => n + x.length, 0));
   parts.reduce((o, x) => (bytes.set(x, o), o + x.length), 0);
   for (const ep of ["webgpu", "wasm"]) {
@@ -73,8 +73,8 @@ async function loadModel() {
     } catch (e) { console.warn(ep, "failed:", e); }
   }
   if (!session) throw new Error("could not load the model");
-  $("backend").textContent = backend === "webgpu" ? "WebGPU (graphics chip)" : "WebAssembly (processor)";
-  $("loadmsg").textContent = "Warming up the graphics chip…";
+  $("backend").textContent = backend === "webgpu" ? "WebGPU (chip đồ hoạ)" : "WebAssembly (bộ xử lý)";
+  $("loadmsg").textContent = "Đang khởi động chip đồ hoạ…";
   for (const [k, S] of [1280, 960, 640, 480, 320].entries()) {
     setProgress(0.72 + 0.056 * k);
     const x = new ort.Tensor("float32", new Float32Array(3 * S * S), [1, 3, S, S]);
@@ -396,13 +396,13 @@ function drawResults({ dets, bikes }) {
     let top = bb[1];
     for (const r of b.riders) for (const q of [r.person, r.head]) if (q) top = Math.min(top, q[1]);
     if (st === "violation") label(reasons(b).join(" + "), bb[0], top - 4 * t, STATUS_COLORS.violation, t, "#fff", `#${tracker.number.get(b.id) || ""}`);
-    else if (b.overload === 1) label("3 people: check", bb[0], top - 4 * t, CHECK_COLOR, t * 0.85, "#2a1a00", "", true);
-    else if (st === "ok" && bb[2] - bb[0] > 0.12 * view.width) label("Helmet", bb[0], top - 4 * t, STATUS_COLORS.ok, t * 0.85, "#fff", "", true);
+    else if (b.overload === 1) label("3 người: cần xem", bb[0], top - 4 * t, CHECK_COLOR, t * 0.85, "#2a1a00", "", true);
+    else if (st === "ok" && bb[2] - bb[0] > 0.12 * view.width) label("Có mũ", bb[0], top - 4 * t, STATUS_COLORS.ok, t * 0.85, "#fff", "", true);
   }
   for (const d of shownList) {
     if (d[5] < 2) continue;
     box(d, COLORS[d[5]], 2.5 * s, 3 * s);
-    if (d[5] === 3) label(`Bare ${Math.round(100 * d[4])}%`, d[0], d[1] - 3 * s, COLORS[3], t * 0.75, "#2a0d05", "", true);
+    if (d[5] === 3) label(`Không mũ ${Math.round(100 * d[4])}%`, d[0], d[1] - 3 * s, COLORS[3], t * 0.75, "#2a0d05", "", true);
   }
 }
 
@@ -413,16 +413,16 @@ const CHECK_COLOR = "#f5a524";
 // what the motorbike is flagged for, in the words of Law 36/2024/QH15 Art. 33
 function reasons(b) {
   const out = [], n = b.riders.filter((r) => r.status === "no_helmet").length;
-  if (b.helmetViolation) out.push(n > 1 ? `${n} without helmet` : "No helmet");
-  if (b.overload === 2) out.push(`${b.load} people on one bike`);
-  return out.length ? out : ["No helmet"];
+  if (b.helmetViolation) out.push(n > 1 ? `${n} người không mũ` : "Không đội mũ");
+  if (b.overload === 2) out.push(`Chở ${b.load} người`);
+  return out.length ? out : ["Không đội mũ"];
 }
 
 // fines of Decree 168/2024/ND-CP as published (each person without a helmet is fined separately)
 function fines(b) {
   const out = [];
-  if (b.helmetViolation) out.push("No helmet: 400,000-600,000 VND per person");
-  if (b.overload === 2) out.push("2+ passengers: 600,000-800,000 VND");
+  if (b.helmetViolation) out.push("Không mũ: phạt 400.000-600.000 đ mỗi người");
+  if (b.overload === 2) out.push("Chở từ 2 người trở lên: phạt 600.000-800.000 đ");
   return out.join("<br>");
 }
 
@@ -434,9 +434,9 @@ function logViolation(b, id) {
   const c = document.createElement("canvas"); c.width = c.height = 192;
   const g = c.getContext("2d"); g.fillStyle = "#222"; g.fillRect(0, 0, 192, 192);
   g.drawImage(frameC, cx - side / 2, cy - side / 2, side, side, 0, 0, 192, 192);
-  const when = still ? "photo" : stream ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : clock(video.currentTime);
+  const when = still ? "ảnh" : stream ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : clock(video.currentTime);
   const li = document.createElement("li"); li.className = "card new";
-  li.innerHTML = `<img alt="Motorbike #${id}"><div><b>#${id}</b><span>${when}</span><em>${reasons(b).join(" + ")}</em><small>${fines(b)}</small></div>`;
+  li.innerHTML = `<img alt="Xe máy #${id}"><div><b>#${id}</b><span>${when}</span><em>${reasons(b).join(" + ")}</em><small>${fines(b)}</small></div>`;
   li.querySelector("img").src = c.toDataURL("image/jpeg", 0.85);
   const list = $("logList"); list.prepend(li);
   while (list.children.length > LOG_MAX) list.lastChild.remove();
@@ -452,7 +452,7 @@ let flagged = 0, lastFlash = 0;
 function updateHud() {
   $("fps").textContent = rate(renderTimes).toFixed(0); $("ms").textContent = emaMs.toFixed(0);
   $("dps").textContent = still ? "1" : rate(inferTimes).toFixed(0);
-  $("msize").textContent = `${LEVELS[level].name} px (prep ${shown.prep.toFixed(0)} ms, GPU ${shown.run.toFixed(0)} ms)`;
+  $("msize").textContent = `${LEVELS[level].name} px (chuẩn bị ${shown.prep.toFixed(0)} ms, GPU ${shown.run.toFixed(0)} ms)`;
   const { dets, bikes } = latest;
   $("nb").textContent = dets.filter((d) => d[5] === 0).length; $("np").textContent = dets.filter((d) => d[5] === 1).length;
   const heads = shownDets(dets);
@@ -461,10 +461,10 @@ function updateHud() {
   const st = bikes.map((b) => b.shown || b.status), nv = st.filter((x) => x === "violation").length, nok = st.filter((x) => x === "ok").length;
   $("nv").textContent = nv;
   $("disc").className = "count " + (nv ? "bad" : nok && nok === st.length ? "ok" : "wait");
-  $("viol").textContent = nv ? `${nv} ${nv > 1 ? "riders" : "rider"} without a helmet` :
-    !bikes.length ? "Looking for motorbikes" : nok === st.length ? "Everyone in view wears a helmet" :
-    nok ? `${nok} with a helmet, ${st.length - nok} being checked` : "Checking riders";
-  $("seen").textContent = total ? `${total} flagged since you started` : "No riders without a helmet so far";
+  $("viol").textContent = nv ? `${nv} người không đội mũ` :
+    !bikes.length ? "Đang tìm xe máy" : nok === st.length ? "Mọi người trong khung hình đều đội mũ" :
+    nok ? `${nok} xe đội mũ, ${st.length - nok} xe đang kiểm tra` : "Đang kiểm tra người trên xe";
+  $("seen").textContent = total ? `Đã ghi ${total} trường hợp` : "Chưa có ai không đội mũ";
   if (total > flagged && !still && performance.now() - lastFlash > 4000) {
     lastFlash = performance.now(); const f = $("flash"); f.classList.remove("on"); void f.offsetWidth; f.classList.add("on");
   }
@@ -497,7 +497,7 @@ async function inferLoop() {
         const bikes = composeRiders(dets); track(bikes, true);
         latest = { dets, bikes }; $("err").textContent = "";
         inferTimes.push(performance.now()); if (inferTimes.length > 20) inferTimes.shift();
-      } catch (e) { console.error(e); $("err").textContent = "Error: " + (e && e.message || e); await new Promise((r) => setTimeout(r, 500)); }
+      } catch (e) { console.error(e); $("err").textContent = "Lỗi: " + (e && e.message || e); await new Promise((r) => setTimeout(r, 500)); }
     } else {
       await new Promise((r) => setTimeout(r, 30));
     }
@@ -515,7 +515,7 @@ async function processStill() {
     emaMs = performance.now() - t0;
     const bikes = composeRiders(dets); track(bikes, false);
     latest = { dets, bikes };
-  } catch (e) { console.error(e); $("err").textContent = "Error: " + (e && e.message || e); }
+  } catch (e) { console.error(e); $("err").textContent = "Lỗi: " + (e && e.message || e); }
   ctx.drawImage(frameC, 0, 0); drawResults(latest); updateHud();
 }
 
@@ -566,7 +566,7 @@ function applySettings(save) {
   for (const [id, k] of SLIDERS) { CONF[k] = +$(id).value; $(id + "V").textContent = CONF[k].toFixed(2); }
   BARE_NO_PERSON = +$("sNoPerson").value; $("sNoPersonV").textContent = BARE_NO_PERSON.toFixed(2);
   const changed = CONF.some((v, k) => v !== DEFAULTS.conf[k]) || BARE_NO_PERSON !== DEFAULTS.bareNoPerson;
-  $("setNote").textContent = changed ? "Custom values (not the tested defaults)" : "Defaults chosen on held-out Hanoi video frames";
+  $("setNote").textContent = changed ? "Đang dùng giá trị tự chỉnh (khác mức đã kiểm định)" : "Đang dùng mức khuyên dùng";
   if (save) try { localStorage.setItem(SET_KEY, JSON.stringify({ conf: CONF, bareNoPerson: BARE_NO_PERSON })); } catch (e) {}
 }
 function setSliders(v) {
@@ -582,7 +582,7 @@ $("setBtn").onclick = () => {
 };
 
 $("startBtn").onclick = () => startCamera().catch((e) => {
-  $("loadmsg").textContent = `The camera did not start (${e.message}). Allow camera access for this site in Settings, then try again.`;
+  $("loadmsg").textContent = `Không bật được camera (${e.message}). Hãy cho phép trang này dùng camera trong Cài đặt rồi thử lại.`;
 });
 $("flipBtn").onclick = () => { facing = facing === "environment" ? "user" : "environment"; startCamera().catch((e) => alert(e.message)); };
 $("speed").onclick = () => {
@@ -604,13 +604,13 @@ document.addEventListener("visibilitychange", async () => {
   try {
     await Promise.all([loadModel(), document.fonts ? document.fonts.load(`700 16px ${FONT}`).catch(() => {}) : null]);
     setProgress(1); document.body.classList.remove("loading");
-    $("loadmsg").textContent = backend === "webgpu" ? "Ready. Running on the graphics chip." :
-      "Ready. This browser has no WebGPU, so it runs on the processor and checks fewer frames per second.";
+    $("loadmsg").textContent = backend === "webgpu" ? "Sẵn sàng. Đang chạy trên chip đồ hoạ." :
+      "Sẵn sàng. Trình duyệt này không có WebGPU nên chạy trên bộ xử lý, kiểm tra được ít khung hình hơn mỗi giây.";
     $("startBtn").classList.remove("hidden"); $("fileLbl").classList.remove("hidden");
     const src = new URLSearchParams(location.search).get("src");
     if (src) openUrl(src, /\.(jpe?g|png|webp)$/i.test(src));
   } catch (e) {
     document.body.classList.remove("loading");
-    $("loadmsg").textContent = `The model did not load (${e.message}). Check your connection and reload the page.`;
+    $("loadmsg").textContent = `Không tải được mô hình (${e.message}). Kiểm tra kết nối mạng rồi tải lại trang.`;
   }
 })();

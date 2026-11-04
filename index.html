@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="vi">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0c1116">
-<title>Helmet Check</title>
+<title>Kiểm tra mũ bảo hiểm</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
@@ -113,6 +113,7 @@
   #settings .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; }
   #settings button { border: 1px solid var(--glass-line); background: transparent; color: var(--text); border-radius: 10px; padding: 6px 12px; font: inherit; }
   #settings ul { margin: 6px 0 0; padding-left: 18px; line-height: 1.4; }
+  #settings .rec { grid-column: 1 / -1; color: var(--sub); font-size: 11.5px; line-height: 1.35; }
   #log .card small { display: block; color: var(--sub); font-size: 11px; line-height: 1.3; margin-top: 2px; }
   #err { position: fixed; top: calc(var(--safe-t) + 92px); left: 12px; color: #ff9b9d; font-size: 13px; }
 
@@ -179,30 +180,30 @@
 <main id="status">
   <header class="brand">
     <span class="logo" aria-hidden="true"><svg viewBox="0 0 64 64"><use href="#helmet"/></svg></span>
-    Helmet Check
-    <small>On-device, no upload</small>
+    Kiểm tra mũ bảo hiểm
+    <small>Chạy trên máy, không gửi ảnh</small>
   </header>
   <div class="intro">
     <div>
-      <h1>Spot riders without a helmet, live.</h1>
-      <p class="lede">Point the camera at traffic. Every motorbike is tracked, each rider's head is checked, and riders without a helmet are flagged with a snapshot.</p>
+      <h1>Phát hiện người đi xe máy không đội mũ bảo hiểm, trực tiếp.</h1>
+      <p class="lede">Hướng camera ra đường. Mỗi xe máy được theo dõi, đầu của từng người trên xe được kiểm tra, người không đội mũ được ghi lại kèm ảnh chụp.</p>
       <ul class="facts">
-        <li><b>4</b><span>things it detects</span></li>
-        <li><b>10 MB</b><span>model, YOLO26n</span></li>
-        <li><b>0</b><span>images sent anywhere</span></li>
+        <li><b>4</b><span>loại đối tượng nhận diện</span></li>
+        <li><b>10 MB</b><span>mô hình YOLO26n</span></li>
+        <li><b>0</b><span>ảnh gửi ra ngoài</span></li>
       </ul>
       <div class="load">
         <div class="bar"><i id="bar"></i></div>
-        <p id="loadmsg">Loading the model…</p>
+        <p id="loadmsg">Đang tải mô hình…</p>
       </div>
       <div class="actions">
-        <button id="startBtn" class="btn-main hidden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l2-2.5h6L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="4"/></svg>Start camera</button>
-        <label class="btn-alt btn hidden" id="fileLbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>Check a photo or video<input id="file" type="file" accept="image/*,video/*" hidden></label>
+        <button id="startBtn" class="btn-main hidden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l2-2.5h6L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="4"/></svg>Bật camera</button>
+        <label class="btn-alt btn hidden" id="fileLbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>Kiểm tra ảnh hoặc video<input id="file" type="file" accept="image/*,video/*" hidden></label>
       </div>
-      <p class="foot">Runs entirely in this browser on the phone's graphics chip. Works best with the phone held steady, facing the road.</p>
+      <p class="foot">Chạy hoàn toàn trong trình duyệt, trên chip đồ hoạ của điện thoại. Tốt nhất khi giữ máy chắc tay, hướng ra lòng đường.</p>
     </div>
     <figure class="preview">
-      <svg viewBox="0 0 520 340" role="img" aria-label="Example: a scooter rider without a helmet is flagged in red, the bare head is boxed in orange">
+      <svg viewBox="0 0 520 340" role="img" aria-label="Ví dụ: người đi xe tay ga không đội mũ được đánh dấu đỏ, đầu không mũ có khung cam">
         <defs>
           <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3541"/><stop offset=".62" stop-color="#1b232c"/><stop offset="1" stop-color="#151b22"/></linearGradient>
         </defs>
@@ -219,7 +220,7 @@
         <g fill="none" stroke="#dbe2e8" stroke-width="2" opacity=".55"><rect x="194" y="84" width="152" height="146" rx="3" stroke="#4ea1ff"/></g>
         <rect x="224" y="86" width="46" height="46" rx="3" fill="none" stroke="#ff8a3d" stroke-width="3"/>
         <g font-family="Barlow Semi Condensed, Barlow, sans-serif" font-weight="600">
-          <rect x="224" y="60" width="72" height="22" rx="4" fill="#ff8a3d"/><text x="232" y="76" font-size="14" fill="#2a0d05">Bare 91%</text>
+          <rect x="224" y="60" width="104" height="22" rx="4" fill="#ff8a3d"/><text x="232" y="76" font-size="14" fill="#2a0d05">Không mũ 91%</text>
         </g>
         <g fill="none" stroke="#e5383b" stroke-width="5" stroke-linecap="round">
           <path d="M128 112 V84 H156"/><path d="M372 84 H400 V112"/><path d="M128 254 V282 H156"/><path d="M372 282 H400 V254"/>
@@ -227,16 +228,16 @@
         <rect x="128" y="84" width="272" height="198" fill="none" stroke="#e5383b" stroke-width="1.5" opacity=".45"/>
         <g font-family="Barlow Semi Condensed, Barlow, sans-serif">
           <rect x="128" y="290" width="138" height="28" rx="5" fill="#e5383b"/>
-          <text x="139" y="310" font-size="17" font-weight="700" fill="#fff">No helmet</text><text x="226" y="310" font-size="15" font-weight="500" fill="#ffd9da">#12</text>
+          <text x="139" y="310" font-size="17" font-weight="700" fill="#fff">Không mũ</text><text x="226" y="310" font-size="15" font-weight="500" fill="#ffd9da">#12</text>
         </g>
         <g font-family="Barlow, sans-serif">
           <rect x="16" y="16" width="214" height="52" rx="12" fill="rgba(12,17,22,.74)" stroke="rgba(255,255,255,.1)"/>
           <rect x="24" y="24" width="36" height="36" rx="8" fill="#e5383b"/><text x="42" y="50" text-anchor="middle" font-family="Barlow Semi Condensed, Barlow, sans-serif" font-size="22" font-weight="700" fill="#fff">1</text>
-          <text x="70" y="40" font-size="14" font-weight="600" fill="#f2f4f6">1 rider without a helmet</text>
-          <text x="70" y="57" font-size="11" fill="#9aa6b2">12 flagged since you started</text>
+          <text x="70" y="40" font-size="14" font-weight="600" fill="#f2f4f6">1 người không đội mũ</text>
+          <text x="70" y="57" font-size="11" fill="#9aa6b2">Đã ghi 12 trường hợp</text>
         </g>
       </svg>
-      <figcaption>What you see: the motorbike is boxed in red, the bare head in orange, and the rider is added to the violation log.</figcaption>
+      <figcaption>Bạn sẽ thấy: xe máy vi phạm có khung đỏ, đầu không mũ có khung cam, và người đó được thêm vào nhật ký vi phạm.</figcaption>
     </figure>
   </div>
 </main>
@@ -245,59 +246,64 @@
   <div class="state glass">
     <div id="disc" class="count wait"><b id="nv">0</b><svg class="i-ok" aria-hidden="true"><use href="#check"/></svg><svg class="i-wait" aria-hidden="true"><use href="#scan"/></svg></div>
     <div class="verdict" aria-live="polite">
-      <div id="viol">Looking for motorbikes</div>
-      <div id="seen">No riders without a helmet so far</div>
+      <div id="viol">Đang tìm xe máy</div>
+      <div id="seen">Chưa có ai không đội mũ</div>
     </div>
   </div>
   <div class="spacer"></div>
-  <button id="speed" class="chip glass" aria-expanded="false" aria-controls="details"><b id="dps">0</b><span class="live">checks/s</span></button>
+  <button id="speed" class="chip glass" aria-expanded="false" aria-controls="details"><b id="dps">0</b><span class="live">lần/giây</span></button>
   <div id="legend" class="glass">
-  <span><i style="border-color:#f2f4f6"></i>Motorbikes <b id="nb">0</b></span>
-  <span><i style="border-color:var(--person)"></i>People <b id="np">0</b></span>
-  <span><i style="border-color:var(--green)"></i>Helmets <b id="nh">0</b></span>
-  <span><i style="border-color:var(--bare)"></i>Bare heads <b id="nn">0</b></span>
+  <span><i style="border-color:#f2f4f6"></i>Xe máy <b id="nb">0</b></span>
+  <span><i style="border-color:var(--person)"></i>Người <b id="np">0</b></span>
+  <span><i style="border-color:var(--green)"></i>Mũ bảo hiểm <b id="nh">0</b></span>
+  <span><i style="border-color:var(--bare)"></i>Không mũ <b id="nn">0</b></span>
 </div>
 </div>
 <div id="details" class="glass hidden">
-  <span>Engine</span><b id="backend"></b>
-  <span>Input size</span><b id="msize"></b>
-  <span>Time per check</span><b><span id="ms">0</span> ms</b>
-  <span>Screen refresh</span><b><span id="fps">0</span> fps</b>
-  <span>Riders flagged in total</span><b id="uv">0</b>
+  <span>Bộ xử lý</span><b id="backend"></b>
+  <span>Kích thước ảnh</span><b id="msize"></b>
+  <span>Thời gian mỗi lần</span><b><span id="ms">0</span> ms</b>
+  <span>Tốc độ màn hình</span><b><span id="fps">0</span> fps</b>
+  <span>Tổng số vi phạm</span><b id="uv">0</b>
 </div>
-<div id="settings" class="glass hidden" role="dialog" aria-label="Settings">
-  <h2>Confidence thresholds</h2>
-  <label>Motorbike <output id="sMotoV"></output><input id="sMoto" type="range" min="0.05" max="0.95" step="0.01" value="0.55"></label>
-  <label>Person <output id="sPersonV"></output><input id="sPerson" type="range" min="0.05" max="0.95" step="0.01" value="0.5"></label>
-  <label>Helmet <output id="sHelmetV"></output><input id="sHelmet" type="range" min="0.05" max="0.95" step="0.01" value="0.25"></label>
-  <label>Bare head (no helmet) <output id="sBareV"></output><input id="sBare" type="range" min="0.05" max="0.95" step="0.01" value="0.35"></label>
-  <label>Bare head on a bike with no person box <output id="sNoPersonV"></output><input id="sNoPerson" type="range" min="0.05" max="0.95" step="0.01" value="0.45"></label>
-  <p>Lower a value to catch more, raise it for fewer false alarms.</p>
-  <div class="row"><small id="setNote"></small><button id="setReset">Reset</button></div>
-  <h2 style="margin-top:12px">Traffic rules checked</h2>
+<div id="settings" class="glass hidden" role="dialog" aria-label="Cài đặt">
+  <h2>Độ tin cậy</h2>
+  <p>Kéo thấp để bắt được nhiều hơn, kéo cao để ít báo nhầm hơn. Mức khuyên dùng được chọn trên các đoạn video Hà Nội không dùng để huấn luyện.</p>
+  <label>Xe máy <output id="sMotoV"></output><input id="sMoto" type="range" min="0.05" max="0.95" step="0.01" value="0.55">
+    <small class="rec">Khuyên dùng 0.55. Thấp hơn thì nhận thêm xe ở xa nhưng dễ nhận nhầm vật khác là xe máy.</small></label>
+  <label>Người <output id="sPersonV"></output><input id="sPerson" type="range" min="0.05" max="0.95" step="0.01" value="0.5">
+    <small class="rec">Khuyên dùng 0.50. Dùng để biết ai đang ngồi trên xe; cao hơn thì người ở xa bị bỏ qua.</small></label>
+  <label>Mũ bảo hiểm <output id="sHelmetV"></output><input id="sHelmet" type="range" min="0.05" max="0.95" step="0.01" value="0.25">
+    <small class="rec">Khuyên dùng 0.25. Từ 0.10 đến 0.25 kết quả như nhau; trên 0.35 nhiều người đội mũ bị để "chưa rõ".</small></label>
+  <label>Không đội mũ <output id="sBareV"></output><input id="sBare" type="range" min="0.05" max="0.95" step="0.01" value="0.35">
+    <small class="rec">Khuyên dùng 0.35: bắt được 83% người không mũ. 0.40-0.45: ít báo nhầm hơn nhưng chỉ bắt 76-79%. Dưới 0.30: báo nhầm tăng nhanh.</small></label>
+  <label>Không mũ khi không thấy người trên xe <output id="sNoPersonV"></output><input id="sNoPerson" type="range" min="0.05" max="0.95" step="0.01" value="0.45">
+    <small class="rec">Khuyên dùng 0.45. Chặn báo nhầm từ xe đỗ bên đường và người đi bộ đứng cạnh xe.</small></label>
+  <div class="row"><small id="setNote"></small><button id="setReset">Về mức khuyên dùng</button></div>
+  <h2 style="margin-top:12px">Luật giao thông được kiểm tra</h2>
   <ul>
-    <li>Rider and every passenger of a motorbike must wear a helmet (Law 36/2024/QH15, Art. 33.2).</li>
-    <li>One passenger; two only with a child under 12, a sick, elderly or disabled person (Art. 33.1). 3 people on a bike is marked "check", 4 or more is a violation.</li>
-    <li>Pedestrians and parked bikes are not checked.</li>
+    <li>Người lái và mọi người ngồi trên xe mô tô, xe gắn máy phải đội mũ bảo hiểm (Luật TTATGTĐB 2024, Điều 33 khoản 2).</li>
+    <li>Chỉ được chở 1 người; chở 2 người khi có trẻ em dưới 12 tuổi, người bệnh đi cấp cứu, người già yếu, người khuyết tật (Điều 33 khoản 1). Xe có 3 người được đánh dấu "cần xem", từ 4 người là vi phạm.</li>
+    <li>Không kiểm tra người đi bộ, xe đạp và xe đang đỗ.</li>
   </ul>
 </div>
 <div id="err"></div>
 
 
-<aside id="log" class="hidden" aria-label="Riders flagged without a helmet">
-  <div class="log-head">Violations <span class="num" id="logCount">0</span><small id="logHint">newest first</small></div>
-  <p class="empty" id="logEmpty">Riders without a helmet appear here with a snapshot and the time they were seen.</p>
+<aside id="log" class="hidden" aria-label="Danh sách vi phạm">
+  <div class="log-head">Vi phạm <span class="num" id="logCount">0</span><small id="logHint">mới nhất ở trên</small></div>
+  <p class="empty" id="logEmpty">Người không đội mũ sẽ hiện ở đây kèm ảnh chụp và thời điểm phát hiện.</p>
   <ul id="logList"></ul>
 </aside>
 
 <div id="controls" class="hidden">
-  <label class="round glass btn" aria-label="Check a photo or video" for="file"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg></label>
-  <button id="stopBtn" class="stop" aria-label="Stop"><i></i></button>
-  <button id="setBtn" class="round glass" aria-label="Settings" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></button>
-  <button id="flipBtn" class="round glass" aria-label="Switch camera"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 21v-5h-5"/></svg></button>
+  <label class="round glass btn" aria-label="Kiểm tra ảnh hoặc video" for="file"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg></label>
+  <button id="stopBtn" class="stop" aria-label="Dừng"><i></i></button>
+  <button id="setBtn" class="round glass" aria-label="Cài đặt" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></button>
+  <button id="flipBtn" class="round glass" aria-label="Đổi camera"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 21v-5h-5"/></svg></button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.webgpu.min.js"></script>
-<script src="app.js?v=v11e"></script>
+<script src="app.js?v=v11f"></script>
 </body>
 </html>
