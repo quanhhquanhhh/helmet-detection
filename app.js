@@ -6,6 +6,7 @@ const CONF = [0.55, 0.5, 0.10, 0.35];  // motorbike, person as v8; helmet from t
 const INFER_BARE = false;  // the model marks bare heads itself; guessing from a missing head box lowered F1 on both test sets
 const CAND_CONF = 0.10;  // must not exceed the lowest class threshold
 const HELMET_ON_HEAD = 0.3;
+const BARE_NO_PERSON = 0.45;  // bare head on a bike without a detected rider (Hanoi test check: 16 such violations -> 5, real riders kept)
 const TARGET_MS = 62;
 const IOU_NMS = 0.6;
 const RIDER_MIN_PX = 80;
@@ -190,6 +191,13 @@ function adapt(ms) {
   if (fastCount > 30 && level > 0 && (backend === "webgpu" || level > WASM_LEVEL)) { level--; fastCount = 0; emaMs = 0; settle = 3; }
 }
 
+// a bare head with no rider box under it (person not detected) makes a violation only when it is confident and sits
+// over the middle of the bike at a rider's size; otherwise parked bikes next to pedestrians were flagged
+function headOnBike(hd, b) {
+  const bw = b[2] - b[0], hx = (hd[0] + hd[2]) / 2, hw = hd[2] - hd[0];
+  return hd[4] >= BARE_NO_PERSON && hx >= b[0] + 0.15 * bw && hx <= b[2] - 0.15 * bw && hw >= 0.12 * bw && hw <= 0.6 * bw;
+}
+
 function composeRiders(dets) {
   const bikes = dets.filter((d) => d[5] === 0), persons = dets.filter((d) => d[5] === 1);
   const heads = dets.filter((d) => d[5] === 2 || d[5] === 3).sort((a, b) => b[4] - a[4]);
@@ -200,7 +208,9 @@ function composeRiders(dets) {
     bikes.forEach((b, bi) => {
       const bh = b[3] - b[1];
       const xov = Math.max(0, Math.min(p[2], b[2]) - Math.max(p[0], b[0])) / Math.max(pw, 1e-6);
-      if (xov < 0.3 || p[1] > b[1] + 0.5 * bh || p[3] < b[1] + 0.1 * bh || p[3] > b[3] + 0.3 * bh) return;
+      const pcx = (p[0] + p[2]) / 2;
+      // a rider sits on the bike: body centre over the bike, feet not below its wheels (a pedestrian beside a bike fails one of these)
+      if (xov < 0.3 || pcx < b[0] || pcx > b[2] || p[1] > b[1] + 0.5 * bh || p[3] < b[1] + 0.1 * bh || p[3] > b[3] + 0.15 * bh) return;
       const yov = Math.max(0, Math.min(p[3], b[3]) - Math.max(p[1], b[1])) / Math.max(bh, 1e-6);
       if (xov + yov > bestS) { best = bi; bestS = xov + yov; }
     });
@@ -241,7 +251,8 @@ function composeRiders(dets) {
     });
     if (best >= 0) {
       const free = riders.find((r) => r.bike === best && r.head === null);
-      if (free) free.head = hd; else riders.push({ person: null, bike: best, head: hd });
+      if (free) free.head = hd;
+      else if (hd[5] === 2 || headOnBike(hd, bikes[best])) riders.push({ person: null, bike: best, head: hd });
     }
   }
   for (const r of riders) {
