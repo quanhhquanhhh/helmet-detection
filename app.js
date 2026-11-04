@@ -2,9 +2,9 @@ const CLASSES = ["motorbike", "person", "helmet", "no_helmet"];
 const COLORS = ["#f2f4f6", "#4ea1ff", "#2fb36d", "#ff8a3d"];
 const STATUS_COLORS = { violation: "#e5383b", ok: "#2fb36d", unknown: "#c3cad2" };
 const FONT = "'Barlow Semi Condensed', Barlow, -apple-system, system-ui, sans-serif";
-const CONF = [0.55, 0.5, 0.25, 0.15];  // motorbike, person, helmet from val; no_helmet 0.15 (results/v7_eval.csv)
-const INFER_BARE = false;  // v8 marks bare heads itself; guessing from a missing head box lowered F1 on both test sets
-const CAND_CONF = 0.15;
+const CONF = [0.55, 0.5, 0.10, 0.44];  // motorbike, person as v8; helmet and no_helmet chosen on the Hanoi val frames (src/thr_hanoi_val.py)
+const INFER_BARE = false;  // the model marks bare heads itself; guessing from a missing head box lowered F1 on both test sets
+const CAND_CONF = 0.10;  // must not exceed the lowest class threshold
 const HELMET_ON_HEAD = 0.3;
 const TARGET_MS = 62;
 const IOU_NMS = 0.6;
@@ -52,7 +52,7 @@ async function loadModel() {
   ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 2) : 1;
   const parts = [];
   for (let i = 1; i <= 9; i++) {
-    const r = await fetch(`model_part${i}.bin?v=v8b`);
+    const r = await fetch(`model_part${i}.bin?v=v11`);
     if (!r.ok) break;
     parts.push(new Uint8Array(await r.arrayBuffer()));
     setProgress(Math.min(0.7, 0.05 + 0.33 * parts.length));
