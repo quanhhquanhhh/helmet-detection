@@ -41,8 +41,9 @@ let running = false, facing = "environment", stream = null, still = null, wakeLo
 let latest = { dets: [], bikes: [] };
 let renderTimes = [], inferTimes = [];
 const stage = { prep: 0, run: 0 }, shown = { prep: 0, run: 0 }, runCost = {};
-const tracker = { tracks: [], nextId: 1, violators: new Set(), number: new Map(), recent: [], logged: 0 };
+const tracker = { tracks: [], nextId: 1, violators: new Set(), number: new Map(), recent: [], logged: 0, cards: new Map() };
 const tileCache = { next: 0, dets: [], ts: [], key: "" };
+const LOG_MAX = 40;
 
 // one session.run at a time: a new source can start a loop while the old one is still waiting on the GPU
 let runQueue = Promise.resolve();
@@ -314,10 +315,18 @@ function track(bikes, isVideo) {
     b.id = best.id; b.drawBox = isVideo ? best.smooth : b.box;
     if (b.shown === "violation" && !tracker.violators.has(best.id)) {
       const same = recentViolation(b.box);
-      if (same) tracker.number.set(best.id, same.n);
-      else { tracker.logged++; tracker.number.set(best.id, tracker.logged); }
+      if (same && tracker.cards.has(same.n)) tracker.number.set(best.id, same.n);
+      else { tracker.logged++; tracker.number.set(best.id, tracker.logged); logViolation(b, tracker.logged); }
       tracker.recent.push({ box: b.box.slice(0, 4), t: performance.now(), n: tracker.number.get(best.id), track: best });
       tracker.violators.add(best.id);
+    }
+    // a logged rider whose head is then seen with a helmet in 3 of the next 4 frames (and never bare) was a false alarm:
+    // its snapshot is taken off the log, and it is logged again only if it is seen bare again
+    if (isVideo && tracker.violators.has(best.id)) {
+      const last = best.hist.slice(-4);
+      if (last.length === 4 && !last.includes("violation") && last.filter((s) => s === "ok").length >= 3) {
+        removeCard(tracker.number.get(best.id)); tracker.violators.delete(best.id); tracker.number.delete(best.id);
+      }
     }
   }
   for (const t of tracker.tracks) if (!used.has(t)) t.missed++;
@@ -405,6 +414,38 @@ function reasons(b) {
   return n > 1 ? `${n} người không mũ` : "Không đội mũ";
 }
 
+// snapshot of the motorbike and its riders from the frame the decision was made on
+function logViolation(b, id) {
+  const u = b.box.slice(0, 4);
+  for (const r of b.riders) if (r.person) { u[0] = Math.min(u[0], r.person[0]); u[1] = Math.min(u[1], r.person[1]); u[2] = Math.max(u[2], r.person[2]); u[3] = Math.max(u[3], r.person[3]); }
+  const side = Math.max(u[2] - u[0], u[3] - u[1]) * 1.15, cx = (u[0] + u[2]) / 2, cy = (u[1] + u[3]) / 2;
+  const c = document.createElement("canvas"); c.width = c.height = 192;
+  const g = c.getContext("2d"); g.fillStyle = "#222"; g.fillRect(0, 0, 192, 192);
+  g.drawImage(frameC, cx - side / 2, cy - side / 2, side, side, 0, 0, 192, 192);
+  const when = still ? "ảnh" : stream ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : clock(video.currentTime);
+  const li = document.createElement("li"); li.className = "card new";
+  li.innerHTML = `<img alt="Xe máy #${id}"><div><b>#${id}</b><span>${when}</span><em>${reasons(b)}</em></div>` +
+    `<button class="del" aria-label="Xoá ảnh #${id}">×</button>`;
+  li.querySelector("img").src = c.toDataURL("image/jpeg", 0.85);
+  li.querySelector(".del").onclick = () => removeCard(id);   // the user can also take a wrong snapshot off by hand
+  li.dataset.n = id;
+  const list = $("logList"); list.prepend(li); tracker.cards.set(id, li);
+  while (list.children.length > LOG_MAX) { tracker.cards.delete(+list.lastChild.dataset.n); list.lastChild.remove(); }
+  logChanged();
+}
+
+function removeCard(n) {
+  const li = tracker.cards.get(n); if (!li) return;
+  li.remove(); tracker.cards.delete(n); logChanged();
+}
+
+function logChanged() {
+  const n = tracker.cards.size;
+  $("logEmpty").classList.toggle("hidden", n > 0); $("logCount").textContent = n;
+}
+
+function clearLog() { $("logList").replaceChildren(); tracker.cards.clear(); logChanged(); }
+
 function rate(ts) { return ts.length > 1 ? 1000 * (ts.length - 1) / (ts[ts.length - 1] - ts[0]) : 0; }
 
 let flagged = 0, lastFlash = 0;
@@ -417,7 +458,7 @@ function updateHud() {
   $("nb").textContent = dets.filter((d) => d[5] === 0).length; $("np").textContent = dets.filter((d) => d[5] === 1).length;
   const heads = shownDets(dets);
   $("nh").textContent = heads.filter((d) => d[5] === 2).length; $("nn").textContent = heads.filter((d) => d[5] === 3).length;
-  const total = tracker.logged; $("uv").textContent = total;
+  const total = tracker.cards.size; $("uv").textContent = total;
   const st = bikes.map((b) => b.shown || b.status), nv = st.filter((x) => x === "violation").length, nok = st.filter((x) => x === "ok").length;
   $("nv").textContent = nv;
   $("disc").className = "count " + (nv ? "bad" : nok && nok === st.length ? "ok" : "wait");
@@ -481,13 +522,14 @@ async function processStill() {
 
 function showUi() {
   flagged = 0; $("status").classList.add("hidden");
-  for (const id of ["hud", "controls"]) $(id).classList.remove("hidden");
+  for (const id of ["hud", "controls", "log"]) $(id).classList.remove("hidden");
 }
 
 function resetState() {
   level = benchLevel; settle = 3; emaMs = 0; slowCount = fastCount = 0;
   tileCache.dets = []; tileCache.ts = []; tileCache.key = ""; tileCache.next = 0;
   tracker.tracks = []; tracker.nextId = 1; tracker.violators.clear(); tracker.number.clear(); tracker.recent = []; tracker.logged = 0; latest = { dets: [], bikes: [] }; renderTimes = []; inferTimes = [];
+  clearLog();
 }
 
 async function startCamera() {
@@ -549,7 +591,7 @@ $("speed").onclick = () => {
 };
 $("stopBtn").onclick = () => {
   stopSource(); $("status").classList.remove("hidden");
-  for (const id of ["hud", "controls", "details", "settings"]) $(id).classList.add("hidden");
+  for (const id of ["hud", "controls", "log", "details", "settings"]) $(id).classList.add("hidden");
 };
 $("file").onchange = (e) => {
   const f = e.target.files[0]; if (!f) return;
